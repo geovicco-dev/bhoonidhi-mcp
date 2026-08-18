@@ -6,8 +6,9 @@ All SDK calls are wrapped in :func:`sdk_console_to_stderr` so the SDK's progress
 output never reaches the JSON-RPC channel.
 
 Output is shaped for an agent: trimmed dicts and plain values, never the SDK's
-Rich objects. Portal classification (availability, previews) is intentionally
-not reimplemented here — the raw ``PRICED`` token is surfaced as-is.
+Rich objects. Scene availability is classified through the SDK's public
+``scene_availability`` (the same logic the CLI uses), so an agent can tell a
+staged scene from an archived one instead of guessing from the raw token.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from datetime import datetime
 from typing import Any
 
 from bhoonidhi_downloader.exceptions import BhoonidhiError
+from bhoonidhi_downloader.sdk import scene_availability
 
 from .geocode import resolve_location as _resolve_place
 from .matching import Vocabulary, resolve_satellite
@@ -57,15 +59,18 @@ def _shape_archive_record(record: dict[str, Any]) -> dict[str, Any]:
 
 
 def _shape_scene(scene: dict[str, Any]) -> dict[str, Any]:
+    state = scene_availability(scene)
     return {
         "id": scene.get("ID"),
         "satellite": scene.get("SATELLITE"),
         "sensor": scene.get("SENSOR"),
         "selection": scene.get("SELECTION"),
         "date_of_pass": scene.get("DOP"),
-        # Raw portal token, e.g. "OpenData_DirectDownload" / "OpenData_OnOrder" /
-        # "Priced". Not reclassified here — the agent reads it directly.
-        "availability": scene.get("PRICED"),
+        # Classified state: "Ready" (staged, downloads now), "Archived" (open
+        # data but may 404 until requested), "OnOrder", or "Priced".
+        "availability": state.label,
+        # True only when a download would actually be attempted.
+        "downloadable": state.is_downloadable,
         "center": {
             "lat": scene.get("SCENE_CENTER_LAT"),
             "lon": scene.get("SCENE_CENTER_LONG"),
@@ -166,5 +171,17 @@ def search_scenes(
         "matched_satellites": [s.satellite for s in selections],
         "total": len(scenes),
         "returned": len(shaped),
+        # Counts over ALL matched scenes (not just the returned page), so the
+        # agent can answer "how many can I actually download?" honestly.
+        "availability_summary": _availability_summary(scenes),
         "scenes": shaped,
     }
+
+
+def _availability_summary(scenes: list[dict[str, Any]]) -> dict[str, int]:
+    """Count scenes by availability label across the full result set."""
+    summary: dict[str, int] = {}
+    for scene in scenes:
+        label = scene_availability(scene).label
+        summary[label] = summary.get(label, 0) + 1
+    return summary

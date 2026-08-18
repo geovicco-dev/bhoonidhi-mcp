@@ -9,7 +9,7 @@ authors = [
     { name = "Aditya Sharma", email = "geovicco.dev@gmail.com" }
 ]
 dependencies = [
-    "bhoonidhi-downloader>=0.5,<0.6",
+    "bhoonidhi-downloader>=0.5.2,<0.6",
     "mcp>=2.0",
     "geopy>=2.4",
     "rapidfuzz>=3.0",

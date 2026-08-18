@@ -22,9 +22,19 @@ _SCENE = {
     "SELECTION": "Sentinel-2A_MSI_Level-1C",
     "DOP": "06JAN2024",
     "PRICED": "OpenData_DirectDownload",
+    "CURR_SCENE_NO": "Y",  # staged -> Ready
     "SCENE_CENTER_LAT": "25.6",
     "SCENE_CENTER_LONG": "91.9",
 }
+
+
+def _scene(priced, curr_scene_no=None):
+    s = dict(_SCENE, PRICED=priced)
+    if curr_scene_no is None:
+        s.pop("CURR_SCENE_NO", None)
+    else:
+        s["CURR_SCENE_NO"] = curr_scene_no
+    return s
 
 
 class _FakeArchive:
@@ -78,7 +88,31 @@ def test_search_expands_constellation_and_shapes_scenes():
     assert out["total"] == 1
     scene = out["scenes"][0]
     assert scene["id"] == _SCENE["ID"]
-    assert scene["availability"] == "OpenData_DirectDownload"
+    # Staged open-data scene classifies as Ready and downloadable.
+    assert scene["availability"] == "Ready"
+    assert scene["downloadable"] is True
+
+
+def test_availability_reflects_staging_not_just_pricing():
+    """The bug this fixes: DirectDownload without staging is Archived, not Ready."""
+    ready = _scene("OpenData_DirectDownload", "Y")
+    archived = _scene("OpenData_DirectDownload")  # no CURR_SCENE_NO
+    priced = _scene("Priced")
+    out = search_scenes(
+        _FakeClient(scenes=[ready, archived, priced]),
+        "Sentinel-2",
+        "2024-01-01",
+        "2024-01-15",
+        minx=91.7,
+        maxx=92.0,
+        miny=25.4,
+        maxy=25.7,
+    )
+    assert out["availability_summary"] == {"Ready": 1, "Archived": 1, "Priced": 1}
+    labels = [s["availability"] for s in out["scenes"]]
+    assert labels == ["Ready", "Archived", "Priced"]
+    # Both open-data states are downloadable; priced is not.
+    assert [s["downloadable"] for s in out["scenes"]] == [True, True, False]
 
 
 def test_ambiguous_satellite_returns_candidates_not_search():

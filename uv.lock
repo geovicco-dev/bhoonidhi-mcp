@@ -84,7 +84,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "bhoonidhi-downloader", specifier = ">=0.5,<0.6" },
+    { name = "bhoonidhi-downloader", specifier = ">=0.5.2,<0.6" },
     { name = "geopy", specifier = ">=2.4" },
     { name = "mcp", specifier = ">=2.0" },
     { name = "rapidfuzz", specifier = ">=3.0" },
