@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# venv / tooling
+.venv/
+.ruff_cache/
+.pytest_cache/
+
+# env
+.env
+
+# internal working docs (not committed)
+internal/
+
+# agent-instruction file (local only)
+AGENTS.md
