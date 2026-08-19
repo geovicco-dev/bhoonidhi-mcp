@@ -230,5 +230,5 @@ window.CLIENTS = [
   { name: 'Any stdio client',
     desc: 'The same shape works across MCP clients: a named server with a command and empty args.',
     code: '{\n  <span class="str">"mcpServers"</span>: {\n    <span class="str">"bhoonidhi"</span>: {\n      <span class="str">"command"</span>: <span class="str">"/path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp"</span>,\n      <span class="str">"args"</span>: []\n    }\n  }\n}',
-    note: 'Downloads and cart use your own Bhoonidhi login \u2014 run bhd auth login once in your terminal. Credentials stay with you; the agent only sees whether a session exists.' }
+    note: 'Downloads and cart use your own Bhoonidhi login \u2014 run <span class="mono">bhd auth login</span> once in your terminal. Credentials stay with you; the agent only sees whether a session exists.' }
 ];
