@@ -222,7 +222,7 @@ section{position:relative;padding:92px 0}
 .cfg-note .b{color:var(--sig);font-family:var(--mono);flex:none}
 .cred{margin-top:22px;border:1px solid var(--line-2);border-left:2px solid var(--phos);border-radius:12px;padding:18px 20px;background:linear-gradient(180deg,rgba(79,214,196,.04),transparent)}
 .cred-k{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--phos);margin-bottom:8px}
-.cred p{font-size:14px;color:var(--ink-dim);line-height:1.6;max-width:74ch}
+.cred p{font-size:14px;color:var(--ink-dim);line-height:1.65}
 .cred b{color:var(--ink)}
 
 #built{background:linear-gradient(180deg,#080b10,var(--void))}
@@ -285,14 +285,14 @@ footer{border-top:1px solid var(--line);padding:32px 0;position:relative;z-index
       <span class="eyebrow">Model Context Protocol server</span>
       <h1 class="h1">Search ISRO's satellite archive in <span class="em">plain language</span>.</h1>
       <div class="hero-flag"><span class="fdot"></span>Free &amp; open source — made for the community</div>
-      <p class="lead">An MCP server that lets an AI agent search ISRO's Bhoonidhi archive in plain language, then download the results to your own account.</p>
+      <p class="lead">An MCP server that lets an AI agent search ISRO's Bhoonidhi archive in plain language, download the scenes that are ready, and stage the rest to your cart.</p>
       <div class="hero-cta">
         <div class="cmd"><span class="p">$</span><code>git clone https://github.com/geovicco-dev/bhoonidhi-mcp</code><button class="copy" data-copy="git clone https://github.com/geovicco-dev/bhoonidhi-mcp">Copy</button></div>
         <a class="btn-primary" href="#run">Watch it run <span aria-hidden="true">→</span></a>
       </div>
       <div class="hero-why">
         <div class="why-k">Why it exists</div>
-        <p>The Indian Space Policy 2023 opened much of ISRO's Earth-observation archive to everyone. But the Bhoonidhi portal has <b>no official SDK</b>, so using the data means clicking through a web form one scene at a time. This gives an agent a way to do it in a sentence.</p>
+        <p>The Indian Space Policy 2023 opened much of ISRO's Earth-observation archive for everyone to use. This project helps you reach that open data from code and conversation, so it fits into a real workflow instead of a scene-by-scene visit to the portal.</p>
       </div>
       <div class="badges">
         <span class="badge"><b>41</b> missions · <b>79</b> sensors</span>
@@ -435,7 +435,7 @@ footer{border-top:1px solid var(--line);padding:32px 0;position:relative;z-index
     </div>
     <div class="cred">
       <div class="cred-k">Your login stays yours</div>
-      <p>You log in to Bhoonidhi <b>outside the agent</b> — with <span class="mono">bhd auth login</span> in your own terminal, or environment variables the server reads. Your username and password are never sent to the agent, never typed into the chat, and never stored by this project. The agent can only ever see <b>whether</b> a valid session exists, through <span class="mono">auth_status</span> — not the credentials behind it.</p>
+      <p>You log in to Bhoonidhi yourself, outside the agent — with <span class="mono">bhd auth login</span> in your terminal, or credentials in the server's environment. Your password never reaches the agent. All it can check is whether a valid session exists, through <span class="mono">auth_status</span>.</p>
     </div>
   </div>
 </section>
