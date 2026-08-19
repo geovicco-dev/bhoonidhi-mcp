@@ -1,6 +1,6 @@
 [project]
 name = "bhoonidhi-mcp"
-version = "0.1.1"
+version = "0.2.0"
 description = "MCP server exposing ISRO's Bhoonidhi EO portal to AI agents, over the bhoonidhi-downloader SDK"
 readme = "README.md"
 license = "MIT"
