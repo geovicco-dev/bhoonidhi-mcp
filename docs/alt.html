@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>bhoonidhi-mcp — search ISRO's Bhoonidhi archive in plain language</title>
-<meta name="description" content="An MCP server that turns a sentence into a real search against ISRO's Bhoonidhi Earth-observation portal. Read-only, no login. Built on the bhoonidhi-downloader SDK." />
+<meta name="description" content="An MCP server that lets an AI agent search, save, download, and cart satellite scenes from ISRO's Bhoonidhi portal in plain language. Built on the bhoonidhi-downloader SDK." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -231,15 +231,15 @@ footer{border-top:3px double var(--line-2);padding:34px 0;position:relative;z-in
     <div>
       <span class="eyebrow"><span class="no">01</span> · MCP server</span>
       <h1 class="h1">Search ISRO's satellite archive in <em>plain</em> <span class="u">language</span>.</h1>
-      <p class="lead">bhoonidhi-mcp lets an AI agent turn a sentence into a <b>real search</b> against ISRO's Bhoonidhi Earth-observation portal. Read-only, and no login required.</p>
+      <p class="lead">bhoonidhi-mcp lets an AI agent search ISRO's Bhoonidhi portal in plain language, then <b>save, preview, download, and cart</b> the scenes it finds. Searching needs no login; downloads and cart use one.</p>
       <div class="hero-cta">
-        <div class="cmd"><span class="p">$</span><code>pip install bhoonidhi-mcp</code><button class="copy" data-copy="pip install bhoonidhi-mcp">Copy</button></div>
+        <div class="cmd"><span class="p">$</span><code>git clone https://github.com/geovicco-dev/bhoonidhi-mcp</code><button class="copy" data-copy="git clone https://github.com/geovicco-dev/bhoonidhi-mcp">Copy</button></div>
         <a class="btn" href="#run">Watch it run <span aria-hidden="true">→</span></a>
       </div>
       <div class="badges">
-        <span class="badge red">Phase 1 · <b>read-only</b></span>
-        <span class="badge">No login required</span>
-        <span class="badge"><b>41</b> satellites in the archive</span>
+        <span class="badge red">Search free · <b>download with a login</b></span>
+        <span class="badge"><b>15</b> tools</span>
+        <span class="badge"><b>41</b> missions · <b>79</b> sensors</span>
         <span class="badge">MIT licensed</span>
       </div>
     </div>
@@ -318,27 +318,27 @@ footer{border-top:3px double var(--line-2);padding:34px 0;position:relative;z-in
   <div class="wrap">
     <div class="section-head">
       <span class="eyebrow"><span class="no">04</span> · The tools</span>
-      <h2>Three tools the agent calls <em>in order.</em></h2>
-      <p>Each one is a thin adapter over the same client the <span class="mono">bhd</span> command line uses. No portal logic is duplicated.</p>
+      <h2>Fifteen tools, <em>from discovery to download.</em></h2>
+      <p>Each one is a thin adapter over the same client the <span class="mono">bhd</span> command line uses. Search, preview, and save need no login; downloading open-access scenes and staging to the cart use a Bhoonidhi login you set up once.</p>
     </div>
     <div class="pipe">
       <div class="stage">
         <div class="n">i</div>
-        <div><h3>list_archive</h3>
-          <p class="d">The satellites and sensors the portal supports, with their exact search tokens, resolution, and date coverage.</p></div>
-        <div class="io"><b>in</b> &nbsp;refresh: false<br><b>out</b> <span class="out">{ satellites: […41…] }</span></div>
+        <div><h3>Search &amp; discover <span class="mono" style="font-weight:400;font-size:.7em">· no login</span></h3>
+          <p class="d">Explore the archive, resolve a place to a bounding box, run a live search, and preview what a download would fetch — with honest availability on every scene.</p></div>
+        <div class="io"><span class="out">list_archive · resolve_location<br>search_scenes · preview_download</span></div>
       </div>
       <div class="stage">
         <div class="n">ii</div>
-        <div><h3>resolve_location</h3>
-          <p class="d">A place name becomes a centroid and a bounding box for the search. Returns <span class="mono">found: false</span> when it can’t resolve the place, rather than guessing.</p></div>
-        <div class="io"><b>in</b> &nbsp;name: "Shillong"<br><b>out</b> <span class="out">{ lat, lon, bbox }</span></div>
+        <div><h3>Save &amp; reuse <span class="mono" style="font-weight:400;font-size:.7em">· no login</span></h3>
+          <p class="d">Persist a search to a reusable slug, then list, inspect, or remove it — the slug is what downloads and cart staging key off later.</p></div>
+        <div class="io"><span class="out">save_query · list_queries<br>show_query · remove_query</span></div>
       </div>
       <div class="stage">
         <div class="n">iii</div>
-        <div><h3>search_scenes</h3>
-          <p class="d">A casual satellite name, ISO dates, and an area — matched to exact tokens and run against the live portal without saving anything.</p></div>
-        <div class="io"><b>in</b> &nbsp;satellite, dates, bbox<br><b>out</b> <span class="out">{ scenes, availability }</span></div>
+        <div><h3>Download &amp; cart <span class="mono" style="font-weight:400;font-size:.7em">· login</span></h3>
+          <p class="d">Download open-access scenes in the background and follow the job to completion, or stage priced and on-order scenes to the Bhoonidhi cart.</p></div>
+        <div class="io"><span class="out">auth_status · download_query<br>download_status · download_wait<br>cart_add · cart_list · cart_remove</span></div>
       </div>
     </div>
   </div>
@@ -376,7 +376,7 @@ footer{border-top:3px double var(--line-2);padding:34px 0;position:relative;z-in
         <div class="k">This project</div>
         <h3>bhoonidhi-mcp</h3>
         <p>Turns natural language into structured portal queries and shapes the results for an agent. It adds the geocoder and the fuzzy satellite matching — nothing about the portal itself.</p>
-        <div class="meta">MCP · stdio · live, read-only search</div>
+        <div class="meta">MCP · stdio · live search, save, download, cart</div>
       </div>
     </div>
     <p class="built-note"><span class="lead-in">Availability is reported honestly.</span> The server classifies every scene the same way the CLI does — Ready, Archived, On order, or Priced — so an agent can tell you <b>what you can actually download</b> before you try, instead of guessing from the scene name.</p>
@@ -386,8 +386,8 @@ footer{border-top:3px double var(--line-2);padding:34px 0;position:relative;z-in
 <section id="start">
   <div class="wrap start-inner">
     <span class="eyebrow" style="justify-content:center"><span class="no">07</span> · Get started</span>
-    <h2 style="font-size:clamp(30px,4vw,44px);margin-top:16px">Install it, wire your client, <em>ask a question.</em></h2>
-    <div class="cmd"><span class="p">$</span><code>pip install bhoonidhi-mcp</code><button class="copy" data-copy="pip install bhoonidhi-mcp">Copy</button></div>
+    <h2 style="font-size:clamp(30px,4vw,44px);margin-top:16px">Clone it, wire your client, <em>ask a question.</em></h2>
+    <div class="cmd"><span class="p">$</span><code>git clone https://github.com/geovicco-dev/bhoonidhi-mcp &amp;&amp; cd bhoonidhi-mcp &amp;&amp; uv sync</code><button class="copy" data-copy="git clone https://github.com/geovicco-dev/bhoonidhi-mcp && cd bhoonidhi-mcp && uv sync">Copy</button></div>
     <div class="start-links">
       <a href="https://github.com/geovicco-dev/bhoonidhi-mcp" target="_blank" rel="noopener">bhoonidhi-mcp repo ↗</a>
       <a href="https://github.com/geovicco-dev/bhoonidhi-downloader" target="_blank" rel="noopener">bhoonidhi-downloader ↗</a>
