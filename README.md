@@ -108,6 +108,34 @@ answers from the result — for example, that all scenes are *Archived* (open
 data, but each may need a request on the portal before it will download), rather
 than claiming they are all ready.
 
+## Prompts to try
+
+Copy these into any connected agent to get a feel for what it can do.
+
+**Discover the archive**
+
+- "What satellites and sensors does Bhoonidhi have?"
+- "Which sensors does ResourceSat-2A carry, and at what resolution?"
+- "Does Bhoonidhi have any radar satellites?"
+
+**Search for scenes**
+
+- "Find Sentinel-2 scenes over Shillong in January 2024."
+- "Show me Cartosat imagery within 20 km of Bengaluru in the first half of 2024."
+- "Any Sentinel-1 scenes over the Sundarbans in March 2024?"
+- "What Landsat-8 imagery covers Kaziranga National Park last winter?"
+- "Find MODIS scenes over the Rann of Kutch in December 2023."
+
+**Check what's available to download**
+
+- "Of those Sentinel-2 scenes, how many can I actually download right now?"
+- "Which of these need to be ordered or paid for?"
+
+**Preview a download**
+
+- "Preview what downloading those scenes would fetch."
+- "If I wanted these, what's the exact command to get them?"
+
 ## Configuration
 
 All optional, set as environment variables:
