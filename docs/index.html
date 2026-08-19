@@ -85,7 +85,7 @@ section{position:relative;padding:92px 0}
 .shift .before .tag{color:var(--ink-mute)}
 .shift .after{border-color:var(--line-2);background:linear-gradient(180deg,var(--panel),#0f1620)}
 .shift .after .tag{color:var(--phos)}
-.codeblk{margin-top:14px;font-family:var(--mono);font-size:13px;line-height:1.75;background:#080b0f;border:1px solid var(--line);border-radius:10px;padding:16px;overflow-x:auto;color:var(--ink-dim)}
+.codeblk{margin-top:14px;font-family:var(--mono);font-size:13px;line-height:1.75;background:#080b0f;border:1px solid var(--line);border-radius:10px;padding:16px;overflow-x:auto;color:var(--ink-dim);white-space:pre;-webkit-overflow-scrolling:touch}
 .codeblk .fl{color:var(--sig)}.codeblk .cm{color:var(--ink-mute)}.codeblk .st{color:var(--phos)}
 .sentence{margin-top:14px;font-size:21px;font-weight:600;color:var(--ink);letter-spacing:-.01em}
 .sentence .q{color:var(--sig)}
@@ -246,6 +246,31 @@ footer{border-top:1px solid var(--line);padding:32px 0;position:relative;z-index
 .leaflet-container{background:#0a0e14}
 .leaflet-control-attribution{background:rgba(7,9,12,.7)!important;color:var(--ink-mute)!important;font-size:10px}
 .leaflet-control-attribution a{color:var(--ink-dim)!important}
+
+/* ---- mobile (phones; most LinkedIn traffic) ---- */
+@media(max-width:560px){
+  .wrap{padding:0 18px}
+  /* grid/flex items default to min-width:auto and refuse to shrink below their
+     content — the long clone URL then stretches the whole column past the
+     screen. Allow them to shrink so the scrollable command box is contained. */
+  .hero-grid,.hero-grid>div,.hero-cta,.cmd{min-width:0;max-width:100%}
+  .hero-cta{flex-direction:column;align-items:stretch;gap:12px}
+  .cmd{width:100%;height:auto;min-height:50px;padding:12px 8px 12px 14px;font-size:13.5px}
+  .cmd code{flex:1;min-width:0;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+  .cmd .p{flex:none}.cmd .copy{flex:none}
+  .btn-primary{width:100%;justify-content:center}
+  #start .cmd{margin:24px auto 0}
+  /* keep the hero readout panel from stretching the layout */
+  .readout{min-width:0;max-width:100%}
+  /* long config snippets and the CLI example scroll instead of overflowing */
+  .cfg-body{padding:18px}
+  .codewrap pre{font-size:12px;padding:14px}
+  .codeblk{font-size:12px;padding:14px}
+  /* tighter section rhythm on small screens */
+  .h1{font-size:clamp(32px,9vw,40px)}
+  .sentence{font-size:18px}
+  .cred p,.built-note{font-size:13.5px}
+}
 
 @media(prefers-reduced-motion:reduce){*{animation-duration:.001s!important;transition-duration:.001s!important}html{scroll-behavior:auto}}
 </style>
