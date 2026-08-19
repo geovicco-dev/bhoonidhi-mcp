@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>bhoonidhi-mcp — search ISRO's Bhoonidhi archive in plain language</title>
-<meta name="description" content="An MCP server that lets an AI agent search, save, download, and cart satellite scenes from ISRO's Bhoonidhi portal in plain language. Built on the bhoonidhi-downloader SDK." />
+<meta name="description" content="A free, open-source MCP server that lets an AI agent search ISRO's open Bhoonidhi satellite archive in plain language, and download to your own account. Built on the bhoonidhi-downloader SDK." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -231,14 +231,14 @@ footer{border-top:3px double var(--line-2);padding:34px 0;position:relative;z-in
     <div>
       <span class="eyebrow"><span class="no">01</span> · MCP server</span>
       <h1 class="h1">Search ISRO's satellite archive in <em>plain</em> <span class="u">language</span>.</h1>
-      <p class="lead">bhoonidhi-mcp lets an AI agent search ISRO's Bhoonidhi portal in plain language, then <b>save, preview, download, and cart</b> the scenes it finds. Searching needs no login; downloads and cart use one.</p>
+      <p class="lead">Under the Indian Space Policy 2023, much of ISRO's satellite archive is open to everyone. bhoonidhi-mcp lets an AI agent reach it in plain language — search and preview freely, and download to your own Bhoonidhi account. Free and open-source, built for the community.</p>
       <div class="hero-cta">
         <div class="cmd"><span class="p">$</span><code>git clone https://github.com/geovicco-dev/bhoonidhi-mcp</code><button class="copy" data-copy="git clone https://github.com/geovicco-dev/bhoonidhi-mcp">Copy</button></div>
         <a class="btn" href="#run">Watch it run <span aria-hidden="true">→</span></a>
       </div>
       <div class="badges">
-        <span class="badge red">Search free · <b>download with a login</b></span>
-        <span class="badge"><b>15</b> tools</span>
+        <span class="badge red"><b>Free &amp; open source</b></span>
+        <span class="badge">The data is open</span>
         <span class="badge"><b>41</b> missions · <b>79</b> sensors</span>
         <span class="badge">MIT licensed</span>
       </div>
@@ -319,24 +319,24 @@ footer{border-top:3px double var(--line-2);padding:34px 0;position:relative;z-in
     <div class="section-head">
       <span class="eyebrow"><span class="no">04</span> · The tools</span>
       <h2>Fifteen tools, <em>from discovery to download.</em></h2>
-      <p>Each one is a thin adapter over the same client the <span class="mono">bhd</span> command line uses. Search, preview, and save need no login; downloading open-access scenes and staging to the cart use a Bhoonidhi login you set up once.</p>
+      <p>Each one is a thin adapter over the same client the <span class="mono">bhd</span> command line uses. Search, preview, and save are open to anyone. Downloading and cart use your own free Bhoonidhi account — the login is ISRO's, not this project's.</p>
     </div>
     <div class="pipe">
       <div class="stage">
         <div class="n">i</div>
-        <div><h3>Search &amp; discover <span class="mono" style="font-weight:400;font-size:.7em">· no login</span></h3>
+        <div><h3>Search &amp; discover <span class="mono" style="font-weight:400;font-size:.7em">· open to all</span></h3>
           <p class="d">Explore the archive, resolve a place to a bounding box, run a live search, and preview what a download would fetch — with honest availability on every scene.</p></div>
         <div class="io"><span class="out">list_archive · resolve_location<br>search_scenes · preview_download</span></div>
       </div>
       <div class="stage">
         <div class="n">ii</div>
-        <div><h3>Save &amp; reuse <span class="mono" style="font-weight:400;font-size:.7em">· no login</span></h3>
+        <div><h3>Save &amp; reuse <span class="mono" style="font-weight:400;font-size:.7em">· open to all</span></h3>
           <p class="d">Persist a search to a reusable slug, then list, inspect, or remove it — the slug is what downloads and cart staging key off later.</p></div>
         <div class="io"><span class="out">save_query · list_queries<br>show_query · remove_query</span></div>
       </div>
       <div class="stage">
         <div class="n">iii</div>
-        <div><h3>Download &amp; cart <span class="mono" style="font-weight:400;font-size:.7em">· login</span></h3>
+        <div><h3>Download &amp; cart <span class="mono" style="font-weight:400;font-size:.7em">· your ISRO account</span></h3>
           <p class="d">Download open-access scenes in the background and follow the job to completion, or stage priced and on-order scenes to the Bhoonidhi cart.</p></div>
         <div class="io"><span class="out">auth_status · download_query<br>download_status · download_wait<br>cart_add · cart_list · cart_remove</span></div>
       </div>
@@ -380,6 +380,7 @@ footer{border-top:3px double var(--line-2);padding:34px 0;position:relative;z-in
       </div>
     </div>
     <p class="built-note"><span class="lead-in">Availability is reported honestly.</span> The server classifies every scene the same way the CLI does — Ready, Archived, On order, or Priced — so an agent can tell you <b>what you can actually download</b> before you try, instead of guessing from the scene name.</p>
+    <p class="built-note" style="margin-top:16px"><span class="lead-in">Why it exists.</span> ISRO opened much of its Earth-observation archive to everyone, but the portal has no official SDK, so pulling data into a real workflow means clicking through a web form one scene at a time. This project — and the SDK under it — is a small, free, open-source bridge over that gap, with <b>no money behind it</b> and no motive beyond making open Indian EO data easier for the community to use. The roadmap follows what people actually need.</p>
   </div>
 </section>
 
