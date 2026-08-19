@@ -35,8 +35,9 @@ login, done out of band with `bhd auth login` (the server reuses that session).
 | `show_query` | Returns one saved query by slug, with its scenes. | no |
 | `remove_query` | Deletes a saved query by slug. | no |
 | `auth_status` | Reports whether a login is configured. Never handles a password or token. | no |
-| `download_query` | Downloads a saved query's open-access scenes in the background, to a fixed server-configured root. Returns a `job_id` to poll. | yes |
-| `download_status` | Reports a background download's progress, completion, or failure by `job_id`. | no |
+| `download_query` | Downloads a saved query's open-access scenes in the background, to a fixed server-configured root. Returns a `job_id` at once. | yes |
+| `download_status` | One-off check of a background download by `job_id`: bytes downloaded, transfer rate, percent when the size is known, and per-scene detail. | no |
+| `download_wait` | Blocks until a download finishes (or a capped timeout), then reports — the efficient primitive a background watcher loops on. | no |
 | `cart_add` | Stages a saved query's scenes to the cart (routes each to ready / on-order / priced). | yes |
 | `cart_list` | Lists scenes currently staged in the cart. | yes |
 | `cart_remove` | Removes scenes from the cart. | yes |
@@ -46,10 +47,15 @@ download. `search_scenes` and `preview_download` distinguish **Ready** (fetch it
 now) from **Archived** (open data, but may need a request on the portal first),
 so an agent does not over-promise.
 
-Downloads run in the background: `download_query` returns a `job_id` at once and
-the download proceeds while you poll `download_status`. A job lives only as long
-as the server process, so for a large fetch the result recommends running a
-standalone `bhd query download <slug>` command you own instead.
+Downloads run in the background, independent of the conversation:
+`download_query` returns a `job_id` at once and the transfer proceeds on its own.
+Check progress once with `download_status` — it reports bytes downloaded, a
+transfer rate, and a percent once the size is known — or follow a job to
+completion with `download_wait`, which blocks until it finishes (or a capped
+timeout) so an agent can delegate a background watcher and keep the conversation
+free instead of sleep-looping. A job lives only as long as the server process,
+so once a download proves large the status recommends running a standalone `bhd
+query download <slug>` command you own instead.
 
 ## Install
 
@@ -163,6 +169,7 @@ Copy these into any connected agent to get a feel for what it can do.
 - "Am I logged in to Bhoonidhi?"
 - "Download the open-data scenes from my saved search <slug>."
 - "How's that download going?"
+- "Download <slug> and let me know when it's done — I'll keep working."
 - "Add the priced scenes from <slug> to my cart."
 - "What's in my cart this week?"
 
@@ -192,6 +199,7 @@ Set as environment variables (all optional):
 | `BHOONIDHI_MCP_MAX_RESULTS` | `50` | Maximum scenes returned inline by `search_scenes`. |
 | `BHOONIDHI_MCP_DOWNLOAD_ROOT` | `~/Downloads` | Allow-listed root every download writes under, as `<root>/<slug>/`. The agent cannot choose an arbitrary path. |
 | `BHOONIDHI_MCP_DOWNLOAD_PARALLEL` | `4` | Parallel download workers. |
+| `BHOONIDHI_MCP_LARGE_DOWNLOAD_MB` | `500` | Once a download's live byte total (or known size) passes this, the status flags it large and steers the agent to hand off or run a standalone command. |
 | `BHOONIDHI_USERNAME` / `BHOONIDHI_PASSWORD` | *(unset)* | Optional headless login. Prefer `bhd auth login`; fill these out of band, never commit them. |
 
 ## Development

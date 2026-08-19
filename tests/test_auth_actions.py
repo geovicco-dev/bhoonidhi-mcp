@@ -19,6 +19,7 @@ from bhoonidhi_mcp.tools import (
     cart_remove,
     download_query,
     download_status,
+    download_wait,
 )
 
 
@@ -188,10 +189,11 @@ def test_download_status_progresses_to_completed_with_outcomes(monkeypatch, tmp_
     monkeypatch.setenv("BHOONIDHI_MCP_DOWNLOAD_ROOT", str(tmp_path))
 
     def impl(on_progress):
-        on_progress("S1", 50, 100)
-        on_progress("S2", 50, 100)
+        # Cumulative per-scene bytes, as the SDK reports them.
+        on_progress("S1", 5_000_000, 5_000_000)
+        on_progress("S2", 3_000_000, 3_000_000)
         return [
-            _Outcome("S1", "downloaded", path="a.zip", bytes_downloaded=100),
+            _Outcome("S1", "downloaded", path="a.zip", bytes_downloaded=5_000_000),
             _Outcome("S2", "skipped_priced"),
         ]
 
@@ -205,6 +207,36 @@ def test_download_status_progresses_to_completed_with_outcomes(monkeypatch, tmp_
     # Each outcome is glossed in plain language.
     priced = next(o for o in snap["outcomes"] if o["id"] == "S2")
     assert "priced" in priced["meaning"].lower()
+
+
+def test_download_status_reports_bytes_rate_and_percent(monkeypatch, tmp_path):
+    """The NISAR fix: progress is bytes and rate, not just 'N scenes started'."""
+    monkeypatch.setenv("BHOONIDHI_MCP_DOWNLOAD_ROOT", str(tmp_path))
+    gate = __import__("threading").Event()
+
+    def impl(on_progress):
+        on_progress("S1", 40_000_000, 100_000_000)
+        on_progress("S2", 60_000_000, 100_000_000)
+        gate.wait(2)  # hold the job "running" so we can inspect mid-flight
+        return [_Outcome("S1", "downloaded"), _Outcome("S2", "downloaded")]
+
+    out = download_query(_FakeClient(download_impl=impl), "q1")
+    # Poll until both progress callbacks have landed.
+    for _ in range(200):
+        snap = download_status(out["job_id"])
+        if snap["bytes_downloaded"] >= 100_000_000:
+            break
+        time.sleep(0.01)
+    assert snap["status"] == "running"
+    assert snap["bytes_downloaded"] == 100_000_000
+    assert snap["mb_downloaded"] == 100.0
+    # Both totals known (200 MB) -> percent is derived.
+    assert snap["bytes_expected"] == 200_000_000
+    assert snap["percent"] == 50.0
+    assert snap["rate_mb_s"] > 0
+    assert "MB" in snap["summary"]
+    gate.set()
+    _wait_for(out["job_id"])
 
 
 def test_download_failure_is_captured_not_raised(monkeypatch, tmp_path):
@@ -223,13 +255,79 @@ def test_download_status_unknown_job_is_not_found():
     assert download_status("deadbeef")["status"] == "not_found"
 
 
-def test_large_download_suggests_a_standalone_command(monkeypatch, tmp_path):
+def test_download_query_always_offers_handoff_and_standalone(monkeypatch, tmp_path):
     monkeypatch.setenv("BHOONIDHI_MCP_DOWNLOAD_ROOT", str(tmp_path))
-    many = [dict(_READY, ID=f"S{i}") for i in range(40)]
-    out = download_query(_FakeClient(scenes=many), "big")
-    assert "large_download" in out
-    assert "bhd query download big" in out["large_download"]
+    out = download_query(_FakeClient(), "q1")
+    # The agent is steered off sleep-loops toward a delegated watcher up front.
+    assert "download_wait" in out["handoff"]
+    assert "do not block" in out["handoff"].lower() or "does not depend" in out["handoff"].lower()
+    assert "bhd query download q1" in out["large_download"]
     _wait_for(out["job_id"])
+
+
+def test_large_download_flagged_by_bytes_not_scene_count(monkeypatch, tmp_path):
+    """Three multi-hundred-MB scenes (the NISAR case) must trip the size flag."""
+    monkeypatch.setenv("BHOONIDHI_MCP_DOWNLOAD_ROOT", str(tmp_path))
+    monkeypatch.setenv("BHOONIDHI_MCP_LARGE_DOWNLOAD_MB", "500")
+    import bhoonidhi_mcp.tools as tools_module
+    monkeypatch.setattr(tools_module, "LARGE_DOWNLOAD_MB", 500)
+    gate = __import__("threading").Event()
+
+    def impl(on_progress):
+        # 3 scenes, ~700 MB each -> well past 500 MB total, few scenes.
+        for i in range(3):
+            on_progress(f"S{i}", 700_000_000, 700_000_000)
+        gate.wait(2)
+        return [_Outcome(f"S{i}", "downloaded") for i in range(3)]
+
+    out = download_query(_FakeClient(scenes=[dict(_READY, ID=f"S{i}") for i in range(3)],
+                                     download_impl=impl), "big")
+    # Not flagged at kick-off (size unknown then)...
+    assert "large_download" not in out or out["large_download"]  # kickoff hint is a string
+    for _ in range(200):
+        snap = download_status(out["job_id"])
+        if snap.get("large_download") is True:
+            break
+        time.sleep(0.01)
+    # ...but flagged once the bytes prove it large, with a handoff steer.
+    assert snap["large_download"] is True
+    assert "download_wait" in snap["handoff"]
+    gate.set()
+    _wait_for(out["job_id"])
+
+
+def test_download_wait_returns_on_completion(monkeypatch, tmp_path):
+    monkeypatch.setenv("BHOONIDHI_MCP_DOWNLOAD_ROOT", str(tmp_path))
+
+    def impl(on_progress):
+        on_progress("S1", 10, 10)
+        return [_Outcome("S1", "downloaded")]
+
+    out = download_query(_FakeClient(download_impl=impl), "q1")
+    # A generous wait returns the moment the job completes, not after the timeout.
+    snap = download_wait(out["job_id"], timeout_s=5)
+    assert snap["status"] == "completed"
+
+
+def test_download_wait_times_out_while_running(monkeypatch, tmp_path):
+    monkeypatch.setenv("BHOONIDHI_MCP_DOWNLOAD_ROOT", str(tmp_path))
+    gate = __import__("threading").Event()
+
+    def impl(on_progress):
+        on_progress("S1", 5, 10)
+        gate.wait(5)
+        return [_Outcome("S1", "downloaded")]
+
+    out = download_query(_FakeClient(download_impl=impl), "q1")
+    snap = download_wait(out["job_id"], timeout_s=0.1)
+    # Still running when the short wait elapses — returns latest progress.
+    assert snap["status"] in ("running", "started")
+    gate.set()
+    _wait_for(out["job_id"])
+
+
+def test_download_wait_unknown_job_is_not_found():
+    assert download_wait("deadbeef", timeout_s=0.1)["status"] == "not_found"
 
 
 # --- cart -------------------------------------------------------------------

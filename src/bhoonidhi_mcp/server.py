@@ -262,26 +262,46 @@ def download_query(
 
     Needs a login (see auth_status). Priced and on-order scenes are skipped —
     stage those with cart_add instead. Returns immediately with a job_id: the
-    download runs in the background, so poll download_status with that id for
-    progress and completion. Interrupted downloads restart from scratch (the
-    portal has no resume support). For a large download the result includes a
-    'large_download' note recommending a standalone command you own, because an
-    in-server job ends if the MCP client restarts.
+    download runs on its own and does NOT depend on this conversation, so never
+    block by sleeping and re-polling. To follow it hands-free, delegate a
+    background watcher that loops download_wait on the job_id and reports back,
+    keeping you free to keep talking; the result's 'handoff' note says so. File
+    sizes are unknown until each transfer starts (the portal reveals them only
+    then); once a download proves large, download_status/download_wait flag it
+    and 'large_download' offers a standalone command that outlives this session.
+    Interrupted downloads restart from scratch (no resume support).
     """
     return tools.download_query(_client, slug, select=select, force=force)
 
 
 @server.tool()
 def download_status(job_id: str) -> dict:
-    """Check a background download started by download_query.
+    """Check a background download started by download_query (one-off).
 
     Give the job_id from download_query. Returns the live state: running (with
-    scenes_started, total_scenes, and the current scene), completed (with
-    per-scene outcomes), or failed (with the error). Poll this to report
-    progress and to tell the user when the download finishes. Jobs exist only
-    while the server runs; an unknown id returns status="not_found".
+    bytes_downloaded, mb_downloaded, rate_mb_s, percent when the total size is
+    known, and per-scene detail), completed (with per-scene outcomes), or failed
+    (with the error). Use this for a single progress check. To follow a job to
+    completion without tying up the conversation, use download_wait from a
+    delegated watcher instead. Jobs exist only while the server runs; an unknown
+    id returns status="not_found".
     """
     return tools.download_status(job_id)
+
+
+@server.tool()
+def download_wait(job_id: str, timeout_s: float = 60.0) -> dict:
+    """Wait for a background download to finish, then report — for a watcher.
+
+    Give the job_id from download_query. Blocks inside the server and returns as
+    soon as the download completes or fails, or after timeout_s (capped at 120s)
+    with the latest progress if still running. This is the efficient way to
+    follow a job: a delegated background watcher calls it in a loop and stops
+    when status is "completed" or "failed", so the main conversation is never
+    blocked on sleeps. Prefer this over repeated sleep+download_status. An
+    unknown id returns status="not_found".
+    """
+    return tools.download_wait(job_id, timeout_s=timeout_s)
 
 
 @server.tool()

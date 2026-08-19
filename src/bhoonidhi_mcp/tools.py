@@ -763,19 +763,33 @@ def auth_status(client: Any) -> dict[str, Any]:
 
 # --- downloads (authenticated, background job + poll) ----------------------
 
-# Above this many downloadable scenes, an in-session job is the wrong tool: it
-# dies with the server process. The download result steers larger fetches to a
-# standalone command the user owns instead.
-_LARGE_DOWNLOAD_SCENES = 25
+# A download that will move more than this many megabytes is one to hand off,
+# not babysit. Size is unknown up front (the portal only sends Content-Length
+# once a transfer starts), so this gate is applied to the live byte totals in a
+# status snapshot, not at kick-off.
+LARGE_DOWNLOAD_MB = int(os.environ.get("BHOONIDHI_MCP_LARGE_DOWNLOAD_MB", "500"))
+# Longest a single download_wait call may block, so it can never wedge a worker
+# thread. A watcher loops several bounded waits rather than one unbounded one.
+_MAX_WAIT_S = 120.0
 
 
 def _standalone_hint(slug: str, out_dir: str) -> str:
     return (
-        "This is a large download. An in-server job ends if the MCP client "
-        "restarts, so run it as a standalone command you own instead: "
-        f"'bhd query download {slug} --out {out_dir}' (append ' &' or use nohup "
-        "to detach). It survives independently of this session."
+        f"Run it as a standalone command you own: 'bhd query download {slug} "
+        f"--out {out_dir}' (append ' &' or use nohup to detach). It survives "
+        "independently of this session, which an in-server job does not."
     )
+
+
+_HANDOFF_HINT = (
+    "This download runs on its own in the background — it does NOT depend on the "
+    "conversation, so do not block by sleeping and re-polling. To stay informed "
+    "without tying up the chat, hand off: delegate a background watcher that "
+    "loops download_wait on this job_id and reports back when it finishes (or at "
+    "intervals), leaving you free to keep talking. Ask for a one-off check any "
+    "time with download_status. For a very large or long fetch, prefer a "
+    "standalone command instead (see large_download)."
+)
 
 
 def download_query(
@@ -789,8 +803,9 @@ def download_query(
 
     Confines output to ``<BHOONIDHI_MCP_DOWNLOAD_ROOT>/<slug>/`` — the path is
     computed from the configured root and the slug, never taken from the caller.
-    Returns immediately with a ``job_id`` to poll via ``download_status``. Needs
-    a session; returns the not-authenticated result when none is held.
+    Returns immediately with a ``job_id``; the download proceeds on its own
+    thread. Needs a session; returns the not-authenticated result when none is
+    held.
     """
     auth_error = _ensure_authenticated(client)
     if auth_error is not None:
@@ -825,30 +840,53 @@ def download_query(
 
     jobs.run(job, _work)
 
-    result: dict[str, Any] = {
+    return {
         "status": "started",
         "job_id": job.job_id,
         "slug": slug,
         "out_dir": out_dir,
         "downloadable_scenes": downloadable,
         "message": (
-            f"Download started into {out_dir}. Poll download_status with "
-            f"job_id '{job.job_id}' for progress. Interrupted downloads restart "
-            "from scratch — the portal has no resume support."
+            f"Download of {downloadable} scene(s) started into {out_dir}. "
+            "Interrupted downloads restart from scratch — the portal has no "
+            "resume support. File sizes are unknown until each transfer begins."
         ),
+        "handoff": _HANDOFF_HINT,
+        "large_download": _standalone_hint(slug, out_dir),
     }
-    if downloadable > _LARGE_DOWNLOAD_SCENES:
-        result["large_download"] = _standalone_hint(slug, out_dir)
-    return result
+
+
+def _augment_status(snap: dict[str, Any]) -> dict[str, Any]:
+    """Add size-aware guidance to a live snapshot once bytes are known.
+
+    The scene-count guess at kick-off can't see that three NISAR scenes are
+    gigabytes; the byte totals here can. When the download has moved (or is
+    expected to move) past the large-download threshold, tell the agent to hand
+    off to a watcher rather than block the conversation.
+    """
+    if snap["status"] in ("completed", "failed"):
+        return snap
+    expected = snap.get("bytes_expected")
+    downloaded = snap.get("bytes_downloaded", 0)
+    threshold = LARGE_DOWNLOAD_MB * 1_000_000
+    is_large = (expected is not None and expected > threshold) or downloaded > threshold
+    if is_large:
+        snap["large_download"] = True
+        snap["handoff"] = _HANDOFF_HINT
+    return snap
 
 
 def download_status(job_id: str) -> dict[str, Any]:
     """Report a background download job's progress and outcome.
 
-    Give the ``job_id`` from ``download_query``. Returns the live state:
-    running (with scenes_started / total_scenes and the current scene),
-    completed (with per-scene outcomes), or failed (with the error). Jobs live
-    only for the server process's lifetime; an unknown id reports not_found.
+    Give the ``job_id`` from ``download_query``. Returns the live state with
+    byte totals and a transfer rate: running (bytes_downloaded, mb_downloaded,
+    rate_mb_s, percent when total size is known, and per-scene detail),
+    completed (with per-scene outcomes), or failed (with the error). A single
+    call — use it for a one-off check; to follow a job to completion without
+    blocking the conversation, hand off a watcher that loops download_wait.
+    Jobs live only for the server process's lifetime; an unknown id reports
+    not_found.
     """
     job = jobs.get(job_id)
     if job is None:
@@ -860,7 +898,32 @@ def download_status(job_id: str) -> dict[str, Any]:
                 "server restarted — start a new download with download_query."
             ),
         }
-    return job.snapshot()
+    return _augment_status(job.snapshot())
+
+
+def download_wait(job_id: str, timeout_s: float = 60.0) -> dict[str, Any]:
+    """Block until a download finishes or ``timeout_s`` elapses, then report.
+
+    The efficient way for a background watcher to follow a job: instead of
+    sleeping and re-polling, this waits inside the server and returns the moment
+    the job completes or fails — or after ``timeout_s`` with the latest progress
+    if it is still running. ``timeout_s`` is capped so it never wedges the
+    server; a watcher that wants to follow a long download calls this in a loop,
+    checking status between calls, and stops when status is completed or failed.
+    An unknown id reports not_found.
+    """
+    job = jobs.get(job_id)
+    if job is None:
+        return {
+            "status": "not_found",
+            "job_id": job_id,
+            "error": (
+                "No download job with that id. It may have been lost when the "
+                "server restarted — start a new download with download_query."
+            ),
+        }
+    capped = max(0.0, min(float(timeout_s), _MAX_WAIT_S))
+    return _augment_status(job.wait(capped))
 
 
 # --- cart (authenticated) --------------------------------------------------
