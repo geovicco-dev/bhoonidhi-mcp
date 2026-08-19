@@ -3,11 +3,12 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 An [MCP](https://modelcontextprotocol.io) server that lets an AI agent search,
-save, and preview satellite scenes from [ISRO's Bhoonidhi Browse & Order portal](https://bhoonidhi.nrsc.gov.in/)
+save, download, and cart satellite scenes from [ISRO's Bhoonidhi Browse & Order portal](https://bhoonidhi.nrsc.gov.in/)
 (NRSC) in natural language. An agent can turn a sentence like "Sentinel-2 over
 Shillong last January" into a real search against the live portal, see honestly
-what is available to download, save a search to reuse later, and preview what a
-download would fetch — with no credentials configured.
+what is available to download, save a search to reuse later, preview what a
+download would fetch, and — once logged in — download open-access scenes or
+stage them to the cart.
 
 It is a thin adapter over the
 [`bhoonidhi-downloader`](https://github.com/geovicco-dev/bhoonidhi-downloader)
@@ -15,29 +16,40 @@ SDK — the same client the `bhd` CLI uses — so no portal logic is duplicated.
 
 ## Status
 
-**Read-only and stateful, no authentication.** The tools below reach the full
-archive of 41 satellite missions and 79 sensors, search the live portal, and
-save searches to reusable slugs — all without a login. Downloading scenes and
-staging them to the Bhoonidhi cart need credentials and are planned next; until
-then, save a search with `save_query` and act on its slug with the `bhd` CLI.
+**Search and save with no login; download and cart with one.** The tools reach
+the full archive of 41 satellite missions and 79 sensors, search the live
+portal, and save searches to reusable slugs — all without credentials.
+Downloading open-access scenes and staging scenes to the Bhoonidhi cart need a
+login, done out of band with `bhd auth login` (the server reuses that session).
 
 ## Tools
 
-| Tool | What it does |
-|------|--------------|
-| `list_archive` | The vocabulary of satellites, sensors, and search tokens the portal supports, live from Bhoonidhi. |
-| `resolve_location` | Turns a place name ("Loktak Lake") into a centroid and bounding box. Rejects inputs that are not place names. |
-| `search_scenes` | Natural-language scene search over an area and date range. Resolves a casual satellite name to exact tokens, and reports each scene's availability (Ready / Archived / OnOrder / Priced). Stateless — nothing is saved. |
-| `preview_download` | A dry run: shows what downloading the results would fetch, and what would be skipped, before anything is downloaded. |
-| `save_query` | Persists a search (same arguments as `search_scenes`) to a reusable slug, so it can be downloaded or staged to the cart later. |
-| `list_queries` | Lists saved queries as compact summaries: slug, name, date range, satellites, area, and availability. |
-| `show_query` | Returns one saved query by slug, with its scenes. |
-| `remove_query` | Deletes a saved query by slug. |
+| Tool | What it does | Login |
+|------|--------------|-------|
+| `list_archive` | The vocabulary of satellites, sensors, and search tokens the portal supports, live from Bhoonidhi. | no |
+| `resolve_location` | Turns a place name ("Loktak Lake") into a centroid and bounding box. Rejects inputs that are not place names. | no |
+| `search_scenes` | Natural-language scene search over an area and date range. Resolves a casual satellite name to exact tokens, and reports each scene's availability (Ready / Archived / OnOrder / Priced). Stateless — nothing is saved. | no |
+| `preview_download` | A dry run: shows what downloading the results would fetch, and what would be skipped, before anything is downloaded. | no |
+| `save_query` | Persists a search (same arguments as `search_scenes`) to a reusable slug, so it can be downloaded or staged to the cart later. | no |
+| `list_queries` | Lists saved queries as compact summaries: slug, name, date range, satellites, area, and availability. | no |
+| `show_query` | Returns one saved query by slug, with its scenes. | no |
+| `remove_query` | Deletes a saved query by slug. | no |
+| `auth_status` | Reports whether a login is configured. Never handles a password or token. | no |
+| `download_query` | Downloads a saved query's open-access scenes in the background, to a fixed server-configured root. Returns a `job_id` to poll. | yes |
+| `download_status` | Reports a background download's progress, completion, or failure by `job_id`. | no |
+| `cart_add` | Stages a saved query's scenes to the cart (routes each to ready / on-order / priced). | yes |
+| `cart_list` | Lists scenes currently staged in the cart. | yes |
+| `cart_remove` | Removes scenes from the cart. | yes |
 
 Availability matters: an `OpenData` scene is not necessarily staged for
 download. `search_scenes` and `preview_download` distinguish **Ready** (fetch it
 now) from **Archived** (open data, but may need a request on the portal first),
 so an agent does not over-promise.
+
+Downloads run in the background: `download_query` returns a `job_id` at once and
+the download proceeds while you poll `download_status`. A job lives only as long
+as the server process, so for a large fetch the result recommends running a
+standalone `bhd query download <slug>` command you own instead.
 
 ## Install
 
@@ -146,15 +158,41 @@ Copy these into any connected agent to get a feel for what it can do.
 - "Show me what's in the search I saved as <slug>."
 - "Delete the saved search <slug>."
 
+**Download and cart** (need a login — see below)
+
+- "Am I logged in to Bhoonidhi?"
+- "Download the open-data scenes from my saved search <slug>."
+- "How's that download going?"
+- "Add the priced scenes from <slug> to my cart."
+- "What's in my cart this week?"
+
+## Login (for downloads and cart)
+
+Search, saved queries, and previews need no credentials. Downloading scenes and
+staging them to the cart do. Log in once, out of band — the server reuses the
+same session the `bhd` CLI writes:
+
+```bash
+bhd auth login
+```
+
+The MCP server never takes a username or password as a tool argument, and
+`auth_status` never returns your token. For a headless setup with no interactive
+login, you can instead set `BHOONIDHI_USERNAME` / `BHOONIDHI_PASSWORD` in the
+server's environment; the server reads them only to establish a session.
+
 ## Configuration
 
-All optional, set as environment variables:
+Set as environment variables (all optional):
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `BHOONIDHI_MCP_GEOCODER_USER_AGENT` | `bhoonidhi-mcp/0.1` | User-Agent sent to Nominatim (its usage policy asks for a descriptive one). |
 | `BHOONIDHI_MCP_FUZZY_THRESHOLD` | `88` | Score (0–100) a satellite-name match must clear to be confident; below it, candidates are returned for the agent to confirm. |
 | `BHOONIDHI_MCP_MAX_RESULTS` | `50` | Maximum scenes returned inline by `search_scenes`. |
+| `BHOONIDHI_MCP_DOWNLOAD_ROOT` | `~/Downloads` | Allow-listed root every download writes under, as `<root>/<slug>/`. The agent cannot choose an arbitrary path. |
+| `BHOONIDHI_MCP_DOWNLOAD_PARALLEL` | `4` | Parallel download workers. |
+| `BHOONIDHI_USERNAME` / `BHOONIDHI_PASSWORD` | *(unset)* | Optional headless login. Prefer `bhd auth login`; fill these out of band, never commit them. |
 
 ## Development
 
