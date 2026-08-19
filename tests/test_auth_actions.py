@@ -69,7 +69,7 @@ class _FakeCart:
             raise BhoonidhiNotFoundError("no such slug")
         return self._add
 
-    def list(self, filter_by=None, last=None):
+    def list(self, filter_by=None, since=None, until=None, last=None):
         return self._listing
 
     def rm(self, slug=None, select=None, since=None, until=None, last=None,
@@ -363,6 +363,22 @@ def test_cart_list_shapes_items():
     assert out["items"][0] == {
         "id": "S1", "satellite": "SEN2A", "sensor": "MSI", "date_of_pass": "06JAN2024",
     }
+
+
+def test_cart_list_accepts_since_until():
+    items = [{"ID": "S1", "SATELLITE": "SEN2A", "SENSOR": "MSI", "DOP": "06JAN2024"}]
+    out = cart_list(
+        _FakeClient(cart=_FakeCart(listing=items)),
+        since="2026-08-10",
+        until="2026-08-19",
+    )
+    assert out["status"] == "ok"
+    assert out["total"] == 1
+
+
+def test_cart_list_rejects_invalid_since():
+    out = cart_list(_FakeClient(cart=_FakeCart()), since="not-a-date")
+    assert out["status"] == "invalid_request"
 
 
 def test_cart_remove_shapes_removed_and_failed():

@@ -989,22 +989,50 @@ def cart_add(
     }
 
 
+def _parse_optional_date(label: str, value: str | None) -> tuple[datetime | None, dict | None]:
+    """Parse an optional ISO date string, returning an error dict on failure."""
+    if value is None:
+        return None, None
+    try:
+        return datetime.fromisoformat(value), None
+    except ValueError as exc:
+        return None, {
+            "status": "invalid_request",
+            "error": f"Invalid {label} — use YYYY-MM-DD. ({exc})",
+        }
+
+
 def cart_list(
-    client: Any, *, filter_by: str | list[str] | None = None, last: str | None = None
+    client: Any,
+    *,
+    filter_by: str | list[str] | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    last: str | None = None,
 ) -> dict[str, Any]:
     """List scenes currently staged in the cart, across all three carts.
 
     Cart items are filed by add-date; with no window this shows today only, so
-    widen it with ``last`` (e.g. "1 week"). ``filter_by`` limits to states:
-    ready, archived, onorder, priced. Needs a session.
+    widen it with ``since``/``until`` (ISO dates) or ``last`` (e.g. "1 week").
+    ``filter_by`` limits to states: ready, archived, onorder, priced. Needs a
+    session.
     """
     auth_error = _ensure_authenticated(client)
     if auth_error is not None:
         return auth_error
 
+    since_dt, error = _parse_optional_date("since", since)
+    if error is not None:
+        return error
+    until_dt, error = _parse_optional_date("until", until)
+    if error is not None:
+        return error
+
     try:
         with sdk_console_to_stderr():
-            items = client.cart.list(filter_by=filter_by, last=last)
+            items = client.cart.list(
+                since=since_dt, until=until_dt, filter_by=filter_by, last=last
+            )
     except (BhoonidhiAPIError, BhoonidhiError) as exc:
         return {"status": "error", "error": str(exc)}
 
@@ -1025,6 +1053,8 @@ def cart_remove(
     *,
     slug: str | None = None,
     select: list[int | str] | None = None,
+    since: str | None = None,
+    until: str | None = None,
     last: str | None = None,
     filter_by: str | list[str] | None = None,
 ) -> dict[str, Any]:
@@ -1032,16 +1062,29 @@ def cart_remove(
 
     Address rows two ways: pass ``slug`` to index a saved query's scenes, or
     omit it and let ``select`` index the merged cart itself (same numbers
-    cart_list shows under the same window/filter). Needs a session.
+    cart_list shows under the same ``since``/``until``/``last``/``filter_by``
+    window). Needs a session.
     """
     auth_error = _ensure_authenticated(client)
     if auth_error is not None:
         return auth_error
 
+    since_dt, error = _parse_optional_date("since", since)
+    if error is not None:
+        return error
+    until_dt, error = _parse_optional_date("until", until)
+    if error is not None:
+        return error
+
     try:
         with sdk_console_to_stderr():
             removed, failed = client.cart.rm(
-                slug=slug, select=select, last=last, filter_by=filter_by
+                slug=slug,
+                select=select,
+                since=since_dt,
+                until=until_dt,
+                last=last,
+                filter_by=filter_by,
             )
     except BhoonidhiNotFoundError:
         return {
