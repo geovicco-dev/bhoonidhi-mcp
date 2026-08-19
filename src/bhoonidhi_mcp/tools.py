@@ -17,7 +17,11 @@ import os
 from datetime import datetime
 from typing import Any
 
-from bhoonidhi_downloader.exceptions import BhoonidhiError, BhoonidhiValidationError
+from bhoonidhi_downloader.exceptions import (
+    BhoonidhiError,
+    BhoonidhiNotFoundError,
+    BhoonidhiValidationError,
+)
 from bhoonidhi_downloader.sdk import preview_download as _sdk_preview
 from bhoonidhi_downloader.sdk import scene_availability
 
@@ -137,7 +141,7 @@ def search_scenes(
     an area either as a bounding box (minx/maxx/miny/maxy) or a point plus radius
     (lat/lon/radius_km).
     """
-    error, scenes, selections = _run_search(
+    error, query, selections = _run_search(
         client, satellite, start_date, end_date,
         minx=minx, maxx=maxx, miny=miny, maxy=maxy,
         lat=lat, lon=lon, radius_km=radius_km, sensor=sensor, product=product,
@@ -145,6 +149,7 @@ def search_scenes(
     if error is not None:
         return error
 
+    scenes = query.scenes if query else []
     shaped = [_shape_scene(s) for s in scenes[:max_results]]
     counts = _availability_summary(scenes)
     result: dict[str, Any] = {
@@ -157,11 +162,7 @@ def search_scenes(
         "scenes": shaped,
     }
     if scenes:
-        create_cmd = _bhd_create_command(
-            start_date, end_date, selections,
-            minx, maxx, miny, maxy, lat, lon, radius_km,
-        )
-        result["how_to_act"] = _how_to_act(counts, create_cmd)
+        result["how_to_act"] = _how_to_act(counts)
     return result
 
 
@@ -255,19 +256,25 @@ def _run_search(
     radius_km: float | None = None,
     sensor: str | None = None,
     product: str | None = None,
-) -> tuple[dict[str, Any] | None, list[dict[str, Any]], list[Any]]:
-    """Resolve the satellite and run a stateless search.
+    save: bool = False,
+    name: str | None = None,
+    description: str | None = None,
+) -> tuple[dict[str, Any] | None, Any, list[Any]]:
+    """Resolve the satellite and run a search, stateless or saved.
 
-    Returns ``(error, scenes, selections)``: on any problem ``error`` is the
-    ready-to-return result dict and the other two are empty; on success
-    ``error`` is None. Shared by ``search_scenes`` and ``preview_download`` so
-    both classify the same scenes with identical resolution and error handling.
+    Returns ``(error, query, selections)``: on any problem ``error`` is the
+    ready-to-return result dict and ``query`` is None; on success ``error`` is
+    None and ``query`` is the SDK's ``QuerySchema`` (carrying ``.scenes`` and,
+    when ``save=True``, a persistent ``.slug``). Shared by ``search_scenes``,
+    ``preview_download``, and ``save_query`` so all three resolve the satellite,
+    validate the area, and map portal errors identically. ``save`` /``name``
+    /``description`` are forwarded to the SDK only when persisting a query.
     """
     aoi_error = _validate_args(
         satellite, minx, maxx, miny, maxy, lat, lon, radius_km
     )
     if aoi_error is not None:
-        return (aoi_error, [], [])
+        return (aoi_error, None, [])
 
     vocab = _get_vocab(client)
     resolution = resolve_satellite(satellite, vocab, threshold=FUZZY_THRESHOLD)
@@ -278,7 +285,7 @@ def _run_search(
                 "query": satellite,
                 "candidates": resolution.candidates,
             },
-            [],
+            None,
             [],
         )
 
@@ -299,7 +306,7 @@ def _run_search(
                 "status": "invalid_request",
                 "error": f"Invalid date — use YYYY-MM-DD. ({exc})",
             },
-            [],
+            None,
             [],
         )
     if end < start:
@@ -311,7 +318,7 @@ def _run_search(
                     "Give the range in chronological order."
                 ),
             },
-            [],
+            None,
             [],
         )
 
@@ -328,7 +335,9 @@ def _run_search(
                 lat=lat,
                 lon=lon,
                 radius_km=radius_km,
-                save=False,
+                name=name,
+                description=description,
+                save=save,
             )
     except BhoonidhiValidationError as exc:
         # The satellite resolved, but the portal rejected every selection —
@@ -342,14 +351,13 @@ def _run_search(
                 "total": 0,
                 "scenes": [],
             },
-            [],
+            None,
             [],
         )
     except BhoonidhiError as exc:
-        return ({"status": "error", "error": str(exc)}, [], [])
+        return ({"status": "error", "error": str(exc)}, None, [])
 
-    scenes = query.scenes if query else []
-    return (None, scenes, selections)
+    return (None, query, selections)
 
 
 def _availability_summary(scenes: list[dict[str, Any]]) -> dict[str, int]:
@@ -378,44 +386,13 @@ def _plain_summary(counts: dict[str, int]) -> str:
     return "; ".join(parts) + "." if parts else "No scenes matched."
 
 
-def _bhd_create_command(
-    start: str,
-    end: str,
-    selections: list[Any],
-    minx: float | None,
-    maxx: float | None,
-    miny: float | None,
-    maxy: float | None,
-    lat: float | None,
-    lon: float | None,
-    radius_km: float | None,
-) -> str:
-    """Reconstruct the `bhd query create` that reproduces this search and saves it.
-
-    The MCP search is stateless (no slug), but acting via the CLI needs one, so
-    the user re-runs this saving form first. Flags mirror the verified CLI.
-    """
-    sats = []
-    for sel in selections:
-        token = sel.satellite
-        if getattr(sel, "sensor", None):
-            token = f"{sel.satellite}:{sel.sensor}"
-            if getattr(sel, "product", None):
-                token += f":{sel.product}"
-        sats.append(f'--sat "{token}"')
-    if minx is not None:
-        aoi = f"--minx {minx} --maxx {maxx} --miny {miny} --maxy {maxy}"
-    else:
-        aoi = f"--lat {lat} --lon {lon} --radius {radius_km}"
-    return f"bhd query create {start} {end} " + " ".join(sats) + " " + aoi
-
-
-def _how_to_act(counts: dict[str, int], create_cmd: str) -> dict[str, Any]:
+def _how_to_act(counts: dict[str, int]) -> dict[str, Any]:
     """What the user can do with these scenes today, and what's coming.
 
-    This server is read-only for now, so acting (download, cart) is done with
-    the bhd CLI. Each step is spelled out with the exact command; downloading
-    and cart staging are planned MCP features noted here so the agent can say so.
+    The server can now persist a search (``save_query`` returns a slug), so the
+    agent no longer has to tell the user to reproduce the search by hand. Acting
+    on that slug — downloading, cart staging — is still done with the bhd CLI
+    until those land in-server; each step is spelled out with the exact command.
     """
     then: list[dict[str, str]] = []
     if counts.get("Ready") or counts.get("Archived"):
@@ -448,11 +425,15 @@ def _how_to_act(counts: dict[str, int], create_cmd: str) -> dict[str, Any]:
         )
     return {
         "mcp_status": (
-            "This server is read-only for now; downloading scenes and staging "
-            "priced/on-order scenes to your cart are planned for a future update. "
-            "Until then, act with the bhd CLI — log in first with 'bhd auth login'."
+            "Call save_query to persist this search and get a <slug>. Downloading "
+            "scenes and staging priced/on-order scenes to your cart are planned "
+            "for a future update; until then, act on the slug with the bhd CLI — "
+            "log in first with 'bhd auth login'."
         ),
-        "reproduce_search": create_cmd + "   # saves the search and prints a <slug>",
+        "save_first": (
+            "save_query with the same arguments returns a <slug>. The bhd "
+            "commands below take that slug."
+        ),
         "then": then,
     }
 
@@ -508,7 +489,7 @@ def preview_download(
     portal exposes it only once a download starts), so this reports what and
     where, not how big.
     """
-    error, scenes, selections = _run_search(
+    error, query, selections = _run_search(
         client, satellite, start_date, end_date,
         minx=minx, maxx=maxx, miny=miny, maxy=maxy,
         lat=lat, lon=lon, radius_km=radius_km, sensor=sensor, product=product,
@@ -516,6 +497,7 @@ def preview_download(
     if error is not None:
         return error
 
+    scenes = query.scenes if query else []
     previews = _sdk_preview(scenes, out_dir, force=force)
     items = [
         {
@@ -555,3 +537,153 @@ def preview_download(
         ],
         "scenes": items,
     }
+
+
+# --- saved queries (stateful, no auth) -------------------------------------
+
+
+def _shape_selection(sel: Any) -> dict[str, Any]:
+    """A saved query's Selection as plain JSON: satellite plus any narrowing."""
+    shaped: dict[str, Any] = {"satellite": sel.satellite}
+    if getattr(sel, "sensor", None):
+        shaped["sensor"] = sel.sensor
+    if getattr(sel, "product", None):
+        shaped["product"] = sel.product
+    return shaped
+
+
+def _shape_aoi(aoi: Any) -> dict[str, Any]:
+    """A saved query's area of interest as the same shape search_scenes takes.
+
+    A ``bbox`` AOI returns minx/miny/maxx/maxy; a ``location`` AOI returns the
+    point and radius. Either can be handed straight back to search_scenes.
+    """
+    if aoi.mode == "location":
+        return {
+            "type": "point",
+            "lat": aoi.lat,
+            "lon": aoi.lon,
+            "radius_km": aoi.radius_km,
+        }
+    return {
+        "type": "bbox",
+        "minx": aoi.min_lon,
+        "miny": aoi.min_lat,
+        "maxx": aoi.max_lon,
+        "maxy": aoi.max_lat,
+    }
+
+
+def _shape_query_summary(query: Any) -> dict[str, Any]:
+    """A saved query without its scene list — for listing many at a glance."""
+    scenes = query.scenes or []
+    counts = _availability_summary(scenes)
+    return {
+        "slug": query.slug,
+        "name": query.name,
+        "description": query.description or None,
+        "created_at": query.created_at.isoformat(),
+        "start_date": query.start_date.date().isoformat(),
+        "end_date": query.end_date.date().isoformat(),
+        "satellites": [s.satellite for s in query.selections],
+        "aoi": _shape_aoi(query.aoi),
+        "total": len(scenes),
+        "availability_summary": counts,
+        "summary": _plain_summary(counts),
+    }
+
+
+def _shape_query_detail(query: Any, max_results: int = MAX_RESULTS) -> dict[str, Any]:
+    """A saved query with its shaped scenes — the full record for one slug."""
+    scenes = query.scenes or []
+    detail = _shape_query_summary(query)
+    detail["selections"] = [_shape_selection(s) for s in query.selections]
+    detail["returned"] = min(len(scenes), max_results)
+    detail["scenes"] = [_shape_scene(s) for s in scenes[:max_results]]
+    return detail
+
+
+def save_query(
+    client: Any,
+    satellite: str,
+    start_date: str,
+    end_date: str,
+    *,
+    name: str | None = None,
+    description: str | None = None,
+    minx: float | None = None,
+    maxx: float | None = None,
+    miny: float | None = None,
+    maxy: float | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+    radius_km: float | None = None,
+    sensor: str | None = None,
+    product: str | None = None,
+) -> dict[str, Any]:
+    """Persist a search as a saved query and return its slug.
+
+    Runs the same resolution, validation, and search as ``search_scenes``, but
+    with ``save=True`` so the portal assigns a persistent slug. That slug is
+    what later download and cart steps act on. Validation and ambiguity errors
+    are reported exactly as ``search_scenes`` reports them.
+    """
+    error, query, _ = _run_search(
+        client, satellite, start_date, end_date,
+        minx=minx, maxx=maxx, miny=miny, maxy=maxy,
+        lat=lat, lon=lon, radius_km=radius_km, sensor=sensor, product=product,
+        save=True, name=name, description=description,
+    )
+    if error is not None:
+        return error
+
+    detail = _shape_query_detail(query)
+    return {
+        "status": "ok",
+        "slug": query.slug,
+        "message": (
+            f"Saved as '{query.slug}' with {detail['total']} scene(s). "
+            "Use this slug with the bhd CLI to download or stage to cart "
+            "('bhd auth login' first); in-server download and cart are planned."
+        ),
+        "query": detail,
+    }
+
+
+def list_queries(client: Any) -> dict[str, Any]:
+    """List every saved query as compact summaries (no scene lists)."""
+    with sdk_console_to_stderr():
+        queries = client.query.list()
+    return {
+        "status": "ok",
+        "total": len(queries),
+        "queries": [_shape_query_summary(q) for q in queries],
+    }
+
+
+def show_query(client: Any, slug: str) -> dict[str, Any]:
+    """Return one saved query by slug, with its shaped scenes."""
+    try:
+        with sdk_console_to_stderr():
+            query = client.query.show(slug)
+    except BhoonidhiNotFoundError:
+        return {
+            "status": "not_found",
+            "slug": slug,
+            "error": f"No saved query with slug '{slug}'. Call list_queries to see saved slugs.",
+        }
+    return {"status": "ok", "query": _shape_query_detail(query)}
+
+
+def remove_query(client: Any, slug: str) -> dict[str, Any]:
+    """Delete a saved query by slug."""
+    try:
+        with sdk_console_to_stderr():
+            client.query.rm(slug)
+    except BhoonidhiNotFoundError:
+        return {
+            "status": "not_found",
+            "slug": slug,
+            "error": f"No saved query with slug '{slug}'. Call list_queries to see saved slugs.",
+        }
+    return {"status": "ok", "slug": slug, "message": f"Deleted saved query '{slug}'."}

@@ -2,12 +2,12 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-An [MCP](https://modelcontextprotocol.io) server that lets an AI agent search
-and preview satellite scenes from [ISRO's Bhoonidhi Browse & Order portal](https://bhoonidhi.nrsc.gov.in/)
+An [MCP](https://modelcontextprotocol.io) server that lets an AI agent search,
+save, and preview satellite scenes from [ISRO's Bhoonidhi Browse & Order portal](https://bhoonidhi.nrsc.gov.in/)
 (NRSC) in natural language. An agent can turn a sentence like "Sentinel-2 over
 Shillong last January" into a real search against the live portal, see honestly
-what is available to download, and preview what a download would fetch — with no
-credentials configured.
+what is available to download, save a search to reuse later, and preview what a
+download would fetch — with no credentials configured.
 
 It is a thin adapter over the
 [`bhoonidhi-downloader`](https://github.com/geovicco-dev/bhoonidhi-downloader)
@@ -15,11 +15,11 @@ SDK — the same client the `bhd` CLI uses — so no portal logic is duplicated.
 
 ## Status
 
-**Phase 1: read-only, no authentication.** The four tools below reach the full
-archive of 41 satellite missions and 79 sensors, all without a login.
-Downloading scenes and staging them to the Bhoonidhi cart need credentials and
-are planned for Phase 2; until then, `search_scenes` hands back the exact `bhd`
-CLI command for those steps.
+**Read-only and stateful, no authentication.** The tools below reach the full
+archive of 41 satellite missions and 79 sensors, search the live portal, and
+save searches to reusable slugs — all without a login. Downloading scenes and
+staging them to the Bhoonidhi cart need credentials and are planned next; until
+then, save a search with `save_query` and act on its slug with the `bhd` CLI.
 
 ## Tools
 
@@ -29,6 +29,10 @@ CLI command for those steps.
 | `resolve_location` | Turns a place name ("Loktak Lake") into a centroid and bounding box. Rejects inputs that are not place names. |
 | `search_scenes` | Natural-language scene search over an area and date range. Resolves a casual satellite name to exact tokens, and reports each scene's availability (Ready / Archived / OnOrder / Priced). Stateless — nothing is saved. |
 | `preview_download` | A dry run: shows what downloading the results would fetch, and what would be skipped, before anything is downloaded. |
+| `save_query` | Persists a search (same arguments as `search_scenes`) to a reusable slug, so it can be downloaded or staged to the cart later. |
+| `list_queries` | Lists saved queries as compact summaries: slug, name, date range, satellites, area, and availability. |
+| `show_query` | Returns one saved query by slug, with its scenes. |
+| `remove_query` | Deletes a saved query by slug. |
 
 Availability matters: an `OpenData` scene is not necessarily staged for
 download. `search_scenes` and `preview_download` distinguish **Ready** (fetch it
@@ -134,7 +138,13 @@ Copy these into any connected agent to get a feel for what it can do.
 **Preview a download**
 
 - "Preview what downloading those scenes would fetch."
-- "If I wanted these, what's the exact command to get them?"
+
+**Save a search to reuse**
+
+- "Save that Sentinel-2 search so I can download it later."
+- "List my saved searches."
+- "Show me what's in the search I saved as <slug>."
+- "Delete the saved search <slug>."
 
 ## Configuration
 

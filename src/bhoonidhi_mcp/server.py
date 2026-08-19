@@ -74,10 +74,11 @@ def search_scenes(
     (open data but may need a portal request first), OnOrder (must be requested),
     or Priced (must be purchased). The result includes a plain-English "summary"
     of these counts and a "how_to_act" block. Tell the user clearly when scenes
-    are Archived, OnOrder, or Priced and what each needs. This server is
-    read-only for now: it cannot download scenes or add them to a cart —
-    those are planned for a future update. Until then, "how_to_act" gives the
-    exact bhd CLI commands the user runs themselves (after 'bhd auth login').
+    are Archived, OnOrder, or Priced and what each needs. This search is
+    stateless: to act on these scenes, call save_query with the same arguments to
+    persist them and get a <slug>. Downloading and cart staging in-server are
+    planned for a future update; until then, "how_to_act" gives the exact bhd CLI
+    commands the user runs on that slug (after 'bhd auth login').
     Downloads cannot be resumed if interrupted (the portal has no range support).
     """
     return tools.search_scenes(
@@ -146,6 +147,90 @@ def preview_download(
         product=product,
         force=force,
     )
+
+
+@server.tool()
+def save_query(
+    satellite: str,
+    start_date: str,
+    end_date: str,
+    name: str | None = None,
+    description: str | None = None,
+    minx: float | None = None,
+    maxx: float | None = None,
+    miny: float | None = None,
+    maxy: float | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+    radius_km: float | None = None,
+    sensor: str | None = None,
+    product: str | None = None,
+) -> dict:
+    """Persist a search as a saved query and return a reusable slug.
+
+    Takes the same arguments as search_scenes, plus an optional name and
+    description. Unlike search_scenes (which is stateless and leaves nothing
+    behind), this saves the search on the portal so it can be acted on later:
+    the returned slug is what downloading and cart staging key off. Call this
+    once the user has confirmed a search returns the scenes they want, then hand
+    the slug to the bhd CLI (download / cart) until those actions land in-server.
+
+    Returns status="ok" with the slug and the shaped saved query. If the
+    satellite is ambiguous or the request is invalid, returns the same
+    status="ambiguous_satellite" / "invalid_request" shapes as search_scenes,
+    and saves nothing.
+    """
+    return tools.save_query(
+        _client,
+        satellite,
+        start_date,
+        end_date,
+        name=name,
+        description=description,
+        minx=minx,
+        maxx=maxx,
+        miny=miny,
+        maxy=maxy,
+        lat=lat,
+        lon=lon,
+        radius_km=radius_km,
+        sensor=sensor,
+        product=product,
+    )
+
+
+@server.tool()
+def list_queries() -> dict:
+    """List every saved query as compact summaries.
+
+    Returns each saved query's slug, name, date range, satellites, area of
+    interest, scene count, and a plain-English availability summary — but not
+    the full scene lists (call show_query for one query's scenes). Use this to
+    find the slug for a query the user saved earlier.
+    """
+    return tools.list_queries(_client)
+
+
+@server.tool()
+def show_query(slug: str) -> dict:
+    """Return one saved query by slug, with its scenes.
+
+    Give the slug from save_query or list_queries. Returns the full saved query:
+    its selections, area of interest, date range, and shaped scenes with
+    availability. Returns status="not_found" if no query has that slug.
+    """
+    return tools.show_query(_client, slug)
+
+
+@server.tool()
+def remove_query(slug: str) -> dict:
+    """Delete a saved query by slug.
+
+    Give the slug from save_query or list_queries. Removes the saved query from
+    disk; the scenes themselves are unaffected. Returns status="not_found" if no
+    query has that slug.
+    """
+    return tools.remove_query(_client, slug)
 
 
 @server.resource("bhoonidhi://archive")
