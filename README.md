@@ -59,8 +59,19 @@ query download <slug>` command you own instead.
 
 ## Install
 
-The server is a Python package with a console entry point, `bhoonidhi-mcp`.
-Install it from source with [uv](https://docs.astral.sh/uv/):
+The server is a Python package with a console entry point, `bhoonidhi-mcp`. The
+simplest way to run it is with [uv](https://docs.astral.sh/uv/) — `uvx` fetches,
+builds, and launches it straight from the source, no clone or virtualenv needed:
+
+```bash
+uvx --from git+https://github.com/geovicco-dev/bhoonidhi-mcp bhoonidhi-mcp
+```
+
+The first run builds from source; later runs start from cache. The server speaks
+stdio and is launched by an MCP client — you point the client at that command.
+
+Prefer a local checkout (for development)? Clone and `uv sync`, then use
+`.venv/bin/bhoonidhi-mcp` as the command instead:
 
 ```bash
 git clone https://github.com/geovicco-dev/bhoonidhi-mcp
@@ -68,18 +79,10 @@ cd bhoonidhi-mcp
 uv sync
 ```
 
-This exposes the `bhoonidhi-mcp` command at `.venv/bin/bhoonidhi-mcp`. The server
-speaks stdio and is launched by an MCP client — you point the client at that
-command.
-
 ## Connecting a client
 
-Every MCP client needs the same thing: the command to launch. Use the absolute
-path to the entry point (most reliable across GUI and CLI clients):
-
-```text
-/path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp
-```
+Every MCP client needs the same thing: the command to launch. Point it at `uvx`
+with the source and entry point as arguments.
 
 ### Claude Desktop / Claude Code
 
@@ -89,8 +92,8 @@ path to the entry point (most reliable across GUI and CLI clients):
 {
   "mcpServers": {
     "bhoonidhi": {
-      "command": "/path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp",
-      "args": []
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/geovicco-dev/bhoonidhi-mcp", "bhoonidhi-mcp"]
     }
   }
 }
@@ -105,7 +108,7 @@ path to the entry point (most reliable across GUI and CLI clients):
   "mcp": {
     "bhoonidhi": {
       "type": "local",
-      "command": ["/path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp"],
+      "command": ["uvx", "--from", "git+https://github.com/geovicco-dev/bhoonidhi-mcp", "bhoonidhi-mcp"],
       "enabled": true
     }
   }
@@ -115,7 +118,7 @@ path to the entry point (most reliable across GUI and CLI clients):
 ### MCP Inspector (to try it without an agent)
 
 ```bash
-npx @modelcontextprotocol/inspector /path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp
+npx @modelcontextprotocol/inspector uvx --from git+https://github.com/geovicco-dev/bhoonidhi-mcp bhoonidhi-mcp
 ```
 
 ## Example
