@@ -178,6 +178,8 @@
   function stepDuration(step) {
     if (step.type === 'agent') return 900;
     if (step.type === 'answer') return 600;
+    if (step.type === 'download') return 3200;
+    if (step.type === 'cart') return 1500;
     if (step.type === 'tool') return step.scenes ? step.scenes.length * 280 + 750 : 1100;
     return 800;
   }
@@ -197,6 +199,8 @@
       m.innerHTML = '<div class="who">Agent · answer</div><div class="answer">' + step.html + '</div>';
       T.appendChild(m); scrollChat(); return;
     }
+    if (step.type === 'download') { renderDownload(m, step); return; }
+    if (step.type === 'cart') { renderCart(m, step); return; }
     // tool call
     var tc = document.createElement('div'); tc.className = 'toolcall';
     tc.innerHTML = '<div class="tc-h"><span class="fn">' + step.fn + '()</span>' +
@@ -234,6 +238,78 @@
           renderInsights(run, step);
         });
       }
+    });
+  }
+
+  // A download step: the tool returns a job_id, then a background job streams
+  // progress. Animate a progress bar with MB and rate, then settle to complete.
+  function renderDownload(m, step) {
+    var tc = document.createElement('div'); tc.className = 'toolcall dl';
+    tc.innerHTML = '<div class="tc-h"><span class="fn">' + step.fn + '()</span>' +
+      '<span class="st"><span class="led"></span>starting</span></div>' +
+      '<div class="tc-b"><span class="k">args</span> · ' + argLine(step.args) + '</div>';
+    m.className = 'msg agent tool';
+    m.innerHTML = '<div class="who">Agent · download</div>';
+    m.appendChild(tc); T.appendChild(m); scrollChat();
+
+    at(REDUCED ? 0 : 650, function () {
+      var b = tc.querySelector('.tc-b');
+      tc.querySelector('.st').innerHTML = '<span class="led"></span>downloading';
+      if (step.result) {
+        b.innerHTML += '<div class="scene-rows"><span class="k">job</span><br>' + step.result.join('<br>') + '</div>';
+      }
+      var prog = document.createElement('div'); prog.className = 'dlprog';
+      prog.innerHTML =
+        '<div class="dl-top"><span class="dl-files">' + step.files + ' scenes · download_status</span><span class="dl-pct">0%</span></div>' +
+        '<div class="dl-bar"><span class="dl-fill"></span></div>' +
+        '<div class="dl-meta"><span class="dl-mb">0 / ' + step.totalMb + ' MB</span><span class="dl-rate">— MB/s</span></div>';
+      b.appendChild(prog); scrollChat();
+      var fill = prog.querySelector('.dl-fill'), pct = prog.querySelector('.dl-pct'),
+          mb = prog.querySelector('.dl-mb'), rate = prog.querySelector('.dl-rate');
+      if (REDUCED) {
+        fill.style.width = '100%'; pct.textContent = '100%';
+        mb.textContent = step.totalMb + ' / ' + step.totalMb + ' MB'; rate.textContent = 'done';
+        tc.classList.add('done'); tc.querySelector('.st').innerHTML = '<span class="led"></span>completed';
+        return;
+      }
+      var t0 = performance.now(), dur = 2200;
+      (function tick(now) {
+        var k = Math.min((now - t0) / dur, 1);
+        var e = 1 - Math.pow(1 - k, 2);           // ease-out
+        fill.style.width = (e * 100).toFixed(0) + '%';
+        pct.textContent = (e * 100).toFixed(0) + '%';
+        mb.textContent = (e * step.totalMb).toFixed(0) + ' / ' + step.totalMb + ' MB';
+        rate.textContent = (28 + Math.sin(now / 90) * 6).toFixed(1) + ' MB/s';
+        if (k < 1) { requestAnimationFrame(tick); }
+        else {
+          rate.textContent = 'verified';
+          tc.classList.add('done');
+          tc.querySelector('.st').innerHTML = '<span class="led"></span>completed';
+          scrollChat();
+        }
+      })(t0);
+    });
+  }
+
+  // A cart step: stage the saved query, routing each scene to the cart its
+  // access type needs. Show the routing result as it lands.
+  function renderCart(m, step) {
+    var tc = document.createElement('div'); tc.className = 'toolcall cart';
+    tc.innerHTML = '<div class="tc-h"><span class="fn">' + step.fn + '()</span>' +
+      '<span class="st"><span class="led"></span>staging</span></div>' +
+      '<div class="tc-b"><span class="k">args</span> · ' + argLine(step.args) + '</div>';
+    m.className = 'msg agent tool';
+    m.innerHTML = '<div class="who">Agent · cart</div>';
+    m.appendChild(tc); T.appendChild(m); scrollChat();
+
+    at(REDUCED ? 0 : 800, function () {
+      tc.classList.add('done');
+      tc.querySelector('.st').innerHTML = '<span class="led"></span>staged';
+      var b = tc.querySelector('.tc-b');
+      if (step.result) {
+        b.innerHTML += '<div class="scene-rows"><span class="k">returns</span><br>' + step.result.join('<br>') + '</div>';
+      }
+      scrollChat();
     });
   }
 
@@ -281,10 +357,16 @@
   }
 
   /* ---- boot ---- */
+  function startFlow() {
+    // Optional ?flow=N deep-link so a specific flow can be opened/linked directly.
+    var n = 0, mq = (location.search.match(/[?&]flow=(\d+)/));
+    if (mq) { var i = parseInt(mq[1], 10) - 1; if (i >= 0 && i < window.RUNS.length) n = i; }
+    renderRun(n);
+  }
   function boot() {
     initMap();
     var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) { if (e.isIntersecting) { renderRun(0); io.disconnect(); } });
+      entries.forEach(function (e) { if (e.isIntersecting) { startFlow(); io.disconnect(); } });
     }, { threshold: 0.2 });
     io.observe(document.querySelector('.sim'));
   }

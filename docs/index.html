@@ -131,6 +131,18 @@ section{position:relative;padding:92px 0}
 .pill.OnOrder{background:rgba(122,162,255,.14);color:var(--onorder)}
 .pill.Priced{background:rgba(201,139,255,.14);color:var(--priced)}
 .summary{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+/* download progress + cart tinting for the download/cart flows */
+.toolcall.dl .tc-h{background:rgba(79,214,196,.06)}
+.toolcall.dl .tc-h .fn{color:var(--ready)}
+.toolcall.cart .tc-h{background:rgba(201,139,255,.06)}
+.toolcall.cart .tc-h .fn{color:var(--priced)}
+.dlprog{margin-top:12px;border-top:1px dashed var(--line-2);padding-top:11px}
+.dl-top{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-mute)}
+.dl-top .dl-pct{color:var(--ready);font-weight:700}
+.dl-bar{margin-top:7px;height:8px;border-radius:5px;background:#0a0e14;border:1px solid var(--line);overflow:hidden}
+.dl-fill{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ready),#8fe9db);transition:width .1s linear}
+.dl-meta{margin-top:7px;display:flex;justify-content:space-between;font-size:11px;color:var(--ink-dim)}
+.dl-meta .dl-rate{color:var(--phos)}
 .answer{background:linear-gradient(180deg,#0f1620,#0c121a);border:1px solid var(--line-2);border-left:2px solid var(--sig);border-radius:11px;padding:15px 17px;font-size:14.5px;color:var(--ink)}
 .answer b{color:var(--sig-soft);font-weight:700}
 
@@ -230,7 +242,7 @@ footer{border-top:1px solid var(--line);padding:32px 0;position:relative;z-index
 
 <header>
   <div class="wrap nav">
-    <a class="brand" href="#top"><span class="dot"></span><b>bhoonidhi</b><span>·mcp</span></a>
+    <a class="brand" href="#top"><span class="dot"></span><b>bhoonidhi</b><span>-mcp</span></a>
     <nav class="links">
       <a href="#run">Watch it run</a>
       <a href="#tools">Tools</a>
@@ -311,12 +323,12 @@ footer{border-top:1px solid var(--line);padding:32px 0;position:relative;z-index
   <div class="wrap">
     <div class="section-head">
       <span class="eyebrow">Watch it run</span>
-      <h2>Chat with an agent; watch the data land.</h2>
-      <p>Pick a prompt to see how a conversation would go: the agent calls the tools, and the JSON they return — coordinates and availability — is what an app can turn into the map and summary on the right.</p>
+      <h2>Three things you'll actually do, as a chat.</h2>
+      <p>The same conversation covers the whole job: <b>search</b> and find open data, <b>download</b> the scenes that are ready, or <b>stage</b> priced and on-order scenes to your cart. Pick a flow — the agent calls the tools, and the JSON they return is what this page turns into the map and summary on the right.</p>
     </div>
     <div class="sim">
       <div class="sim-top">
-        <span class="lbl">EXAMPLE CHAT</span>
+        <span class="lbl">PICK A FLOW</span>
         <div class="prompts" id="prompts"></div>
       </div>
       <div class="sim-body">
