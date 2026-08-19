@@ -1,0 +1,22 @@
+name: Publish Docs to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - uses: actions/cache@v4
+        with:
+          key: mkdocs-material-${{ github.ref }}
+          path: .cache
+      - run: uv sync --group dev
+      - run: uv run mkdocs gh-deploy --force

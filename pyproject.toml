@@ -31,6 +31,7 @@ packages = ["src/bhoonidhi_mcp"]
 dev = [
     "ruff>=0.14.0",
     "pytest>=8.3.0",
+    "mkdocs-material>=9.5.30",
 ]
 
 [tool.pytest.ini_options]

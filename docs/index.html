@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>bhoonidhi-mcp — search ISRO's Bhoonidhi archive in plain language</title>
+<meta name="description" content="An MCP server that turns a sentence into a real search against ISRO's Bhoonidhi Earth-observation portal. Read-only, no login. Built on the bhoonidhi-downloader SDK." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+:root{
+  --void:#07090c;--panel:#0d1117;--panel-2:#111823;--line:#1c2733;--line-2:#28394a;
+  --ink:#e8eef4;--ink-dim:#9fb0c0;--ink-mute:#607083;
+  --sig:#ff7d3c;--sig-soft:#ffb27f;--sig-glow:rgba(255,125,60,.18);
+  --phos:#4fd6c4;--phos-dim:#2b7d75;
+  --ready:#4fd6c4;--archived:#e0b64c;--onorder:#7aa2ff;--priced:#c98bff;
+  --radius:14px;--mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Archivo',system-ui,sans-serif;--maxw:1180px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--void);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:56px 56px;opacity:.26;mask-image:radial-gradient(ellipse 90% 70% at 50% 0%,#000 30%,transparent 78%)}
+a{color:inherit;text-decoration:none}
+h1,h2,h3{margin:0;font-weight:800;letter-spacing:-.02em;line-height:1.06}
+p{margin:0}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px;position:relative;z-index:1}
+.mono{font-family:var(--mono)}
+.eyebrow{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--sig);display:inline-flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:26px;height:1px;background:var(--sig);opacity:.7}
+
+header{position:sticky;top:0;z-index:600;backdrop-filter:blur(10px);background:rgba(7,9,12,.72);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;gap:28px;height:64px}
+.brand{display:flex;align-items:center;gap:11px;font-family:var(--mono);font-weight:700;font-size:15px}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--sig);box-shadow:0 0 0 4px var(--sig-glow);animation:ping 3.4s ease-out infinite}
+@keyframes ping{0%{box-shadow:0 0 0 0 var(--sig-glow)}70%{box-shadow:0 0 0 9px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.brand b{color:var(--ink)}.brand span{color:var(--ink-mute)}
+.nav .links{display:flex;gap:26px;margin-left:12px}
+.nav .links a{font-size:14px;color:var(--ink-dim);transition:color .15s}
+.nav .links a:hover{color:var(--ink)}
+.nav .right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.ghost{font-size:13.5px;color:var(--ink-dim);font-family:var(--mono);padding:8px 14px;border:1px solid var(--line-2);border-radius:9px;transition:.15s}
+.ghost:hover{border-color:var(--sig);color:var(--ink)}
+@media(max-width:860px){.nav .links{display:none}}
+
+.vswitch{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:700;font-family:var(--mono);font-size:12px;
+  color:var(--ink-dim);background:rgba(13,17,23,.92);backdrop-filter:blur(8px);border:1px solid var(--line-2);border-radius:999px;
+  padding:9px 16px;display:inline-flex;gap:9px;align-items:center;box-shadow:0 10px 30px -12px #000}
+.vswitch b{color:var(--sig)}.vswitch .x{color:var(--ink-mute)}
+
+.hero{position:relative;padding:88px 0 56px;overflow:hidden}
+.groundtrack{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.5}
+.hero .wrap{position:relative;z-index:2}
+.hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:56px;align-items:center}
+@media(max-width:960px){.hero-grid{grid-template-columns:1fr;gap:40px}}
+.h1{font-size:clamp(38px,5.4vw,64px);letter-spacing:-.035em;margin:22px 0 0}
+.h1 .em{color:var(--sig)}
+.lead{margin-top:22px;font-size:clamp(17px,2vw,20px);color:var(--ink-dim);max-width:40ch}
+.lead b{color:var(--ink);font-weight:600}
+.hero-cta{margin-top:32px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.cmd{display:inline-flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line-2);border-radius:11px;padding:0 6px 0 16px;height:52px;font-family:var(--mono);font-size:15px}
+.cmd .p{color:var(--sig)}.cmd code{color:var(--ink)}
+.copy{margin-left:6px;height:40px;padding:0 14px;border-radius:8px;border:0;cursor:pointer;background:var(--line);color:var(--ink-dim);font-family:var(--mono);font-size:12.5px;font-weight:600;letter-spacing:.04em;transition:.15s}
+.copy:hover{background:var(--sig);color:#160a04}.copy.ok{background:var(--phos);color:#052420}
+.btn-primary{height:52px;padding:0 26px;border-radius:11px;border:0;cursor:pointer;background:var(--sig);color:#180a03;font-family:var(--sans);font-weight:700;font-size:15px;display:inline-flex;align-items:center;gap:10px;transition:.16s;box-shadow:0 8px 30px -10px var(--sig)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 40px -12px var(--sig)}
+.badges{margin-top:28px;display:flex;flex-wrap:wrap;gap:8px}
+.badge{font-family:var(--mono);font-size:12px;color:var(--ink-dim);border:1px solid var(--line);border-radius:999px;padding:5px 12px}
+.badge b{color:var(--phos);font-weight:600}.badge.amber b{color:var(--sig-soft)}
+
+.readout{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line-2);border-radius:16px;overflow:hidden;box-shadow:0 30px 80px -40px #000}
+.readout .bar{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--ink-mute)}
+.dots{display:flex;gap:6px}.dots i{width:10px;height:10px;border-radius:50%;background:var(--line-2)}
+.readout .body{padding:18px;font-family:var(--mono);font-size:13px;line-height:1.95}
+.rl .k{color:var(--ink-mute)}.rl .v{color:var(--ink)}.rl .v.sig{color:var(--sig-soft)}.rl .v.phos{color:var(--phos)}
+
+section{position:relative;padding:92px 0}
+.section-head{max-width:64ch}
+.section-head h2{font-size:clamp(28px,3.6vw,40px);margin-top:14px;letter-spacing:-.03em}
+.section-head p{margin-top:14px;color:var(--ink-dim);font-size:17px}
+.rule{height:1px;background:linear-gradient(90deg,var(--line-2),transparent)}
+
+.shift{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:40px}
+@media(max-width:820px){.shift{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:24px}
+.card .tag{font-family:var(--mono);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-mute)}
+.shift .before .tag{color:var(--ink-mute)}
+.shift .after{border-color:var(--line-2);background:linear-gradient(180deg,var(--panel),#0f1620)}
+.shift .after .tag{color:var(--phos)}
+.codeblk{margin-top:14px;font-family:var(--mono);font-size:13px;line-height:1.75;background:#080b0f;border:1px solid var(--line);border-radius:10px;padding:16px;overflow-x:auto;color:var(--ink-dim)}
+.codeblk .fl{color:var(--sig)}.codeblk .cm{color:var(--ink-mute)}.codeblk .st{color:var(--phos)}
+.sentence{margin-top:14px;font-size:21px;font-weight:600;color:var(--ink);letter-spacing:-.01em}
+.sentence .q{color:var(--sig)}
+.shift .after .note{margin-top:16px;font-size:14px;color:var(--ink-dim)}
+
+.sim{margin-top:36px;border:1px solid var(--line-2);border-radius:18px;overflow:hidden;background:var(--panel);box-shadow:0 40px 100px -60px #000}
+.sim-top{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.sim-top .lbl{font-family:var(--mono);font-size:12px;color:var(--ink-mute);letter-spacing:.08em}
+.prompts{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.chip{font-family:var(--mono);font-size:12.5px;color:var(--ink-dim);background:transparent;border:1px solid var(--line-2);border-radius:8px;padding:7px 13px;cursor:pointer;transition:.15s}
+.chip:hover{border-color:var(--sig);color:var(--ink)}
+.chip.active{background:var(--sig);color:#170a03;border-color:var(--sig);font-weight:600}
+.sim-body{display:grid;grid-template-columns:1.02fr .98fr;min-height:460px}
+@media(max-width:900px){.sim-body{grid-template-columns:1fr}}
+.transcript{padding:22px;border-right:1px solid var(--line);overflow:hidden}
+@media(max-width:900px){.transcript{border-right:0;border-bottom:1px solid var(--line)}}
+.msg{margin-bottom:15px;opacity:0;transform:translateY(8px);animation:in .4s forwards}
+@keyframes in{to{opacity:1;transform:none}}
+.msg .who{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:6px}
+.msg.user .who{color:var(--sig)}
+.msg.user .txt{font-size:18px;font-weight:600;color:var(--ink);letter-spacing:-.01em}
+.msg.agent .txt{font-size:14.5px;color:var(--ink-dim)}
+.toolcall{background:#080b0f;border:1px solid var(--line-2);border-radius:11px;font-family:var(--mono);font-size:12.5px;overflow:hidden}
+.toolcall .tc-h{display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--line);background:rgba(255,125,60,.05)}
+.toolcall .tc-h .fn{color:var(--sig);font-weight:600}
+.toolcall .tc-h .st{margin-left:auto;display:flex;align-items:center;gap:7px;color:var(--ink-mute);font-size:11px}
+.toolcall .tc-h .st .led{width:8px;height:8px;border-radius:50%;background:var(--archived);animation:blink 1s steps(2) infinite}
+.toolcall.done .tc-h .st .led{background:var(--phos);animation:none}
+.toolcall.done .tc-h .st{color:var(--phos)}
+@keyframes blink{50%{opacity:.25}}
+.tc-b{padding:12px 14px;line-height:1.85;color:var(--ink-dim)}
+.tc-b .k{color:var(--ink-mute)}.tc-b .n{color:var(--sig-soft)}.tc-b .s{color:var(--phos)}.tc-b .arw{color:var(--ink-mute)}
+.scene-rows{margin-top:8px;border-top:1px dashed var(--line-2);padding-top:10px}
+.scene-row{display:grid;grid-template-columns:1fr auto auto;gap:10px;padding:4px 0;font-size:11.5px;align-items:center;opacity:0;animation:in .3s forwards}
+.scene-row .id{color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scene-row .dop{color:var(--ink-mute)}
+.pill{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.pill.Ready{background:rgba(79,214,196,.14);color:var(--ready)}
+.pill.Archived{background:rgba(224,182,76,.14);color:var(--archived)}
+.pill.OnOrder{background:rgba(122,162,255,.14);color:var(--onorder)}
+.pill.Priced{background:rgba(201,139,255,.14);color:var(--priced)}
+.summary{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+.answer{background:linear-gradient(180deg,#0f1620,#0c121a);border:1px solid var(--line-2);border-left:2px solid var(--sig);border-radius:11px;padding:15px 17px;font-size:14.5px;color:var(--ink)}
+.answer b{color:var(--sig-soft);font-weight:700}
+
+.mappane{position:relative;background:var(--panel-2);display:flex;flex-direction:column}
+.mappane .mh{display:flex;justify-content:space-between;padding:14px 16px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mute);border-bottom:1px solid var(--line)}
+#map{flex:1;min-height:340px;background:#0a0e14}
+.mapfoot{padding:12px 16px;border-top:1px solid var(--line)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;color:var(--ink-dim)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:middle;border:2px solid;background:transparent}
+.legend .Ready{border-color:var(--ready)}.legend .Archived{border-color:var(--archived)}.legend .OnOrder{border-color:var(--onorder)}.legend .Priced{border-color:var(--priced)}
+.replay{margin-top:10px;width:100%;height:40px;border:1px solid var(--line-2);border-radius:9px;background:transparent;color:var(--ink-dim);font-family:var(--mono);font-size:12.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;transition:.15s}
+.replay:hover{border-color:var(--sig);color:var(--ink)}
+.disclaimer{margin-top:10px;font-size:11px;color:var(--ink-mute);font-family:var(--mono);line-height:1.6}
+
+.pipe{margin-top:40px;display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+@media(max-width:820px){.pipe{grid-template-columns:1fr}}
+.stage{padding:26px 24px;border-right:1px solid var(--line);position:relative;background:var(--panel)}
+.stage:last-child{border-right:0}
+@media(max-width:820px){.stage{border-right:0;border-bottom:1px solid var(--line)}}
+.stage .n{font-family:var(--mono);font-size:12px;color:var(--ink-mute);letter-spacing:.1em}
+.stage h3{font-family:var(--mono);font-size:17px;color:var(--sig);margin-top:12px;letter-spacing:-.01em}
+.stage .d{margin-top:10px;font-size:14.5px;color:var(--ink-dim)}
+.stage .io{margin-top:16px;font-family:var(--mono);font-size:11.5px;color:var(--ink-mute);border-top:1px dashed var(--line-2);padding-top:12px;line-height:1.7}
+.stage .io b{color:var(--ink-dim);font-weight:500}.stage .io .out{color:var(--phos)}
+.stage .arrow{position:absolute;right:-11px;top:50%;transform:translateY(-50%);z-index:3;width:22px;height:22px;border-radius:50%;background:var(--void);border:1px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:var(--sig);font-size:12px}
+@media(max-width:820px){.stage .arrow{display:none}}
+
+.cfg{margin-top:36px;border:1px solid var(--line-2);border-radius:16px;overflow:hidden;background:var(--panel)}
+.cfg-tabs{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.cfg-tab{font-family:var(--mono);font-size:13px;color:var(--ink-dim);padding:15px 20px;cursor:pointer;border-bottom:2px solid transparent;transition:.15s;white-space:nowrap}
+.cfg-tab:hover{color:var(--ink)}
+.cfg-tab.active{color:var(--sig);border-bottom-color:var(--sig)}
+.cfg-body{padding:26px}
+.cfg-panel{display:none}.cfg-panel.active{display:block}
+.cfg-panel .desc{font-size:14.5px;color:var(--ink-dim);margin-bottom:16px}
+.cfg-panel .desc code{font-family:var(--mono);color:var(--sig-soft);font-size:13px;background:#080b0f;padding:2px 7px;border-radius:5px;border:1px solid var(--line)}
+.codewrap{position:relative}
+.codewrap pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.7;color:var(--ink-dim);background:#080b0f;border:1px solid var(--line);border-radius:11px;padding:18px;overflow-x:auto}
+.codewrap pre .kw{color:var(--sig)}.codewrap pre .str{color:var(--phos)}.codewrap pre .cm{color:var(--ink-mute)}
+.codewrap .copy{position:absolute;top:12px;right:12px;margin:0}
+.cfg-note{margin-top:16px;font-size:13px;color:var(--ink-mute);display:flex;gap:10px;align-items:flex-start}
+.cfg-note .b{color:var(--sig);font-family:var(--mono);flex:none}
+
+#built{background:linear-gradient(180deg,#080b10,var(--void))}
+.built{margin-top:36px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:760px){.built{grid-template-columns:1fr}}
+.built .box{border:1px solid var(--line);border-radius:var(--radius);padding:24px;background:var(--panel)}
+.built .box.self{border-color:var(--sig);box-shadow:0 0 0 1px var(--sig-glow)}
+.built .box .k{font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-mute)}
+.built .box h3{font-family:var(--mono);font-size:17px;margin-top:10px}
+.built .box.self h3{color:var(--sig-soft)}.built .box.dep h3{color:var(--phos)}
+.built .box p{margin-top:10px;font-size:14.5px;color:var(--ink-dim)}
+.built .box .meta{margin-top:14px;font-family:var(--mono);font-size:11.5px;color:var(--ink-mute);border-top:1px dashed var(--line-2);padding-top:12px}
+.built-note{margin-top:22px;font-size:14px;color:var(--ink-dim);max-width:70ch}
+.built-note b{color:var(--ink)}
+
+#start{text-align:center}
+.start-inner{max-width:640px;margin:0 auto}
+#start .cmd{margin:28px auto 0}
+.start-links{margin-top:24px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.start-links a{font-family:var(--mono);font-size:13.5px;color:var(--ink-dim);border:1px solid var(--line-2);border-radius:9px;padding:11px 18px;transition:.15s}
+.start-links a:hover{border-color:var(--sig);color:var(--ink)}
+footer{border-top:1px solid var(--line);padding:32px 0;position:relative;z-index:1}
+.foot{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:12.5px;color:var(--ink-mute)}
+.foot a{color:var(--ink-dim)}.foot a:hover{color:var(--sig)}
+.foot .l{display:flex;gap:20px;flex-wrap:wrap}
+
+.leaflet-container{background:#0a0e14}
+.leaflet-control-attribution{background:rgba(7,9,12,.7)!important;color:var(--ink-mute)!important;font-size:10px}
+.leaflet-control-attribution a{color:var(--ink-dim)!important}
+
+@media(prefers-reduced-motion:reduce){*{animation-duration:.001s!important;transition-duration:.001s!important}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<a class="vswitch" href="alt.html">Theme · <b>Dark console</b> <span class="x">→ Light</span></a>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="#top"><span class="dot"></span><b>bhoonidhi</b><span>·mcp</span></a>
+    <nav class="links">
+      <a href="#run">Watch it run</a>
+      <a href="#tools">Tools</a>
+      <a href="#configure">Configure</a>
+      <a href="getting-started/">Docs</a>
+    </nav>
+    <div class="right"><a class="ghost" href="https://github.com/geovicco-dev/bhoonidhi-mcp" target="_blank" rel="noopener">GitHub ↗</a></div>
+  </div>
+</header>
+
+<a id="top"></a>
+<section class="hero">
+  <svg class="groundtrack" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs><linearGradient id="trk" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff7d3c" stop-opacity="0"/><stop offset="0.5" stop-color="#ff7d3c" stop-opacity="0.5"/><stop offset="1" stop-color="#4fd6c4" stop-opacity="0.15"/>
+    </linearGradient></defs>
+    <path d="M-40,470 C 220,300 380,520 620,300 S 1040,120 1260,260" fill="none" stroke="url(#trk)" stroke-width="1.6" stroke-dasharray="5 7"/>
+    <circle r="4.5" fill="#ff7d3c"><animateMotion dur="9s" repeatCount="indefinite" path="M-40,470 C 220,300 380,520 620,300 S 1040,120 1260,260"/></circle>
+  </svg>
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">Model Context Protocol server</span>
+      <h1 class="h1">Search ISRO's satellite archive in <span class="em">plain language</span>.</h1>
+      <p class="lead">bhoonidhi-mcp lets an AI agent turn a sentence into a <b>real search</b> against ISRO's Bhoonidhi Earth-observation portal. Read-only, and no login required.</p>
+      <div class="hero-cta">
+        <div class="cmd"><span class="p">$</span><code>pip install bhoonidhi-mcp</code><button class="copy" data-copy="pip install bhoonidhi-mcp">Copy</button></div>
+        <a class="btn-primary" href="#run">Watch it run <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="badges">
+        <span class="badge amber">Phase 1 · <b>read-only</b></span>
+        <span class="badge">No login required</span>
+        <span class="badge"><b>41</b> satellites in the archive</span>
+        <span class="badge">MIT licensed</span>
+      </div>
+    </div>
+    <div class="readout" aria-hidden="true">
+      <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span>live portal · stdio</span></div>
+      <div class="body">
+        <div class="rl"><span class="k">query&nbsp;&nbsp;&nbsp;</span><span class="v">“Sentinel-2 over Shillong”</span></div>
+        <div class="rl"><span class="k">resolve&nbsp;</span><span class="v phos">25.576°N 91.883°E</span></div>
+        <div class="rl"><span class="k">match&nbsp;&nbsp;&nbsp;</span><span class="v sig">Sentinel-2A · 2B · 2C</span></div>
+        <div class="rl"><span class="k">scenes&nbsp;&nbsp;</span><span class="v">12 found · 5 Ready</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- WHAT IT DOES -->
+<section id="what">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">What it does</span>
+      <h2>The portal wants exact tokens. You write a sentence.</h2>
+      <p>Searching the old way means knowing the satellite token, the bounding box, and the date format up front. bhoonidhi-mcp lets the agent fill those in from what you said.</p>
+    </div>
+    <div class="shift">
+      <div class="card before">
+        <div class="tag">Command line — you supply every argument</div>
+        <div class="codeblk"><span class="cm"># you need the exact token and bounding box first</span>
+<span class="fl">bhd</span> query create 2024-01-01 2024-01-14 \
+   --sat <span class="st">"Sentinel-2A_MSI_Level-1C"</span> \
+   --minx 91.72 --maxx 92.04 \
+   --miny 25.42 --maxy 25.74</div>
+      </div>
+      <div class="card after">
+        <div class="tag">With bhoonidhi-mcp — you state intent</div>
+        <div class="sentence"><span class="q">“</span>Find Sentinel-2 scenes over Shillong from the first two weeks of January 2024.<span class="q">”</span></div>
+        <p class="note">The agent resolves “Shillong” to a bounding box, matches “Sentinel-2” to the portal’s platform tokens, and runs the live search — then reports which results are actually downloadable.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WATCH IT RUN -->
+<section id="run">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Watch it run</span>
+      <h2>An agent calls the tools against the live portal.</h2>
+      <p>Pick a prompt. The tool calls resolve step by step, and each scene the portal returns is plotted on the map, coloured by whether you can download it.</p>
+    </div>
+    <div class="sim">
+      <div class="sim-top">
+        <span class="lbl">EXAMPLE SESSION</span>
+        <div class="prompts" id="prompts"></div>
+      </div>
+      <div class="sim-body">
+        <div class="transcript" id="transcript"></div>
+        <div class="mappane">
+          <div class="mh"><span>LOCATION</span><span id="map-label">—</span></div>
+          <div id="map"></div>
+          <div class="mapfoot">
+            <div class="legend">
+              <span><i class="Ready"></i>Ready</span><span><i class="Archived"></i>Archived</span>
+              <span><i class="OnOrder"></i>On order</span><span><i class="Priced"></i>Priced</span>
+            </div>
+            <button class="replay" id="replay">▶ Replay this run</button>
+            <p class="disclaimer">Satellite names, tokens, availability labels, and place coordinates are real. Scene IDs and per-scene counts are representative of a live query.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TOOLS -->
+<section id="tools">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">The tools</span>
+      <h2>Three tools the agent calls in order.</h2>
+      <p>Each one is a thin adapter over the same client the <span class="mono">bhd</span> command line uses. No portal logic is duplicated.</p>
+    </div>
+    <div class="pipe">
+      <div class="stage">
+        <div class="arrow">→</div>
+        <div class="n">01</div>
+        <h3>list_archive</h3>
+        <p class="d">The satellites and sensors the portal supports, with their exact search tokens, resolution, and date coverage.</p>
+        <div class="io"><b>in</b> &nbsp;refresh: false<br><b>out</b> <span class="out">{ satellites: [ …41… ] }</span></div>
+      </div>
+      <div class="stage">
+        <div class="arrow">→</div>
+        <div class="n">02</div>
+        <h3>resolve_location</h3>
+        <p class="d">A place name becomes a centroid and a bounding box for the search. Returns <span class="mono">found: false</span> when it can’t resolve the place, rather than guessing.</p>
+        <div class="io"><b>in</b> &nbsp;name: "Shillong"<br><b>out</b> <span class="out">{ lat, lon, bbox }</span></div>
+      </div>
+      <div class="stage">
+        <div class="n">03</div>
+        <h3>search_scenes</h3>
+        <p class="d">A casual satellite name, ISO dates, and an area — matched to exact tokens and run against the live portal without saving anything.</p>
+        <div class="io"><b>in</b> &nbsp;satellite, dates, bbox<br><b>out</b> <span class="out">{ scenes, availability_summary }</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONFIGURE -->
+<section id="configure">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Configure your client</span>
+      <h2>Point any MCP client at one command.</h2>
+      <p>bhoonidhi-mcp runs over stdio: the client launches it as a subprocess and talks over stdin and stdout. Every setup comes down to “run this command.”</p>
+    </div>
+    <div class="cfg">
+      <div class="cfg-tabs" id="cfg-tabs"></div>
+      <div class="cfg-body" id="cfg-body"></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT'S BUILT -->
+<section id="built">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">How it's built</span>
+      <h2>An adapter over the bhoonidhi-downloader SDK.</h2>
+      <p>bhoonidhi-mcp does not talk to the portal directly. It calls the same client the <span class="mono">bhd</span> command line uses, so there is one place where portal logic lives.</p>
+    </div>
+    <div class="built">
+      <div class="box dep">
+        <div class="k">Foundation</div>
+        <h3>bhoonidhi-downloader</h3>
+        <p>The SDK and <span class="mono">bhd</span> CLI: portal grammar, satellite tokens, availability classification, and downloads. bhoonidhi-mcp depends on it.</p>
+        <div class="meta">Python · CLI · the source of truth</div>
+      </div>
+      <div class="box self">
+        <div class="k">This project</div>
+        <h3>bhoonidhi-mcp</h3>
+        <p>Turns natural language into structured portal queries and shapes the results for an agent. It adds the geocoder and the fuzzy satellite matching — nothing about the portal itself.</p>
+        <div class="meta">MCP · stdio · live, read-only search</div>
+      </div>
+    </div>
+    <p class="built-note"><b>Availability is reported honestly.</b> The server classifies every scene the same way the CLI does — Ready, Archived, On order, or Priced — so an agent can tell you what you can actually download before you try, instead of guessing from the scene name.</p>
+  </div>
+</section>
+
+<!-- GET STARTED -->
+<section id="start">
+  <div class="wrap start-inner">
+    <span class="eyebrow" style="justify-content:center">Get started</span>
+    <h2 style="font-size:clamp(28px,3.6vw,40px);margin-top:14px">Install it, wire your client, ask a question.</h2>
+    <div class="cmd"><span class="p">$</span><code>pip install bhoonidhi-mcp</code><button class="copy" data-copy="pip install bhoonidhi-mcp">Copy</button></div>
+    <div class="start-links">
+      <a href="https://github.com/geovicco-dev/bhoonidhi-mcp" target="_blank" rel="noopener">bhoonidhi-mcp repo ↗</a>
+      <a href="https://github.com/geovicco-dev/bhoonidhi-downloader" target="_blank" rel="noopener">bhoonidhi-downloader ↗</a>
+      <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">What is MCP? ↗</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <span>bhoonidhi-mcp · MIT · Python ≥ 3.10</span>
+    <div class="l">
+      <a href="https://github.com/geovicco-dev/bhoonidhi-mcp" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/geovicco-dev/bhoonidhi-downloader" target="_blank" rel="noopener">Downloader SDK</a>
+      <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">MCP</a>
+    </div>
+    <span>Not affiliated with ISRO · a community adapter over the public portal</span>
+  </div>
+</footer>
+
+<script>
+window.BHOONIDHI_THEME = {
+  tiles: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  attribution: '&copy; OpenStreetMap &copy; CARTO',
+  bbox: '#ff7d3c', markerStroke: '#07090c',
+  avail: { Ready:'#4fd6c4', Archived:'#e0b64c', OnOrder:'#7aa2ff', Priced:'#c98bff' }
+};
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="assets/runs.js"></script>
+<script src="assets/sim.js"></script>
+</body>
+</html>
