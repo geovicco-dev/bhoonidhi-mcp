@@ -12,16 +12,22 @@
 //   OnOrder  — must be requested before fetching (the PRICED field)
 //   Priced   — commercial, requires payment
 // Ready/Archived are the two open-data states; OnOrder/Priced come from pricing.
-// ESA open data (Sentinel-1, Sentinel-2, Landsat) is ALWAYS Ready or Archived —
-// never OnOrder/Priced. Only commercial missions (e.g. Cartosat) are priced.
+// ESA/NASA open data (Sentinel-1, Sentinel-2, Landsat, NISAR) is ALWAYS Ready or
+// Archived — never OnOrder/Priced. Only commercial missions (e.g. Cartosat) are
+// priced. The three runs below trace the three real uses end to end: search open
+// data; find open scenes and download them; find priced data and stage the cart.
 window.RUNS = [
   {
     key: 'shillong',
-    chip: 'Sentinel-2 · Shillong',
+    chip: '1 · Search open data',
+    flow: 'Search & find open data',
     prompt: 'Find Sentinel-2 scenes over Shillong from the first two weeks of January 2024.',
     place: 'Shillong, Meghalaya',
     bbox: { minx: 91.7228, miny: 25.4160, maxx: 92.0428, maxy: 25.7360 },
     center: [25.5760, 91.8828],
+    sensor: 'MSI · optical',
+    res: '10 m',
+    window: '1–14 Jan 2024',
     // Representative acquisition footprint (deg): Sentinel-2 tiles, orbit-tilted.
     footprint: { w: 0.34, h: 0.40, rot: -12 },
     steps: [
@@ -47,54 +53,83 @@ window.RUNS = [
         ],
         summary: [['Ready', '5 Ready'], ['Archived', '7 Archived']],
         total: 12 },
-      { type: 'answer', html: '<b>12 Sentinel-2 scenes</b> over Shillong in that window. <b>5 are Ready</b> to download; the other 7 are Archived open data you request first.' }
+      { type: 'answer', html: '<b>12 Sentinel-2 scenes</b> over Shillong in that window. <b>5 are Ready</b> to download; the other 7 are Archived open data you request first. Say the word and I can save this search and pull the Ready scenes.' }
     ]
   },
   {
-    key: 'loktak',
-    chip: 'Sentinel-1 · Loktak Lake',
-    prompt: 'Any Sentinel-1 radar over Loktak Lake in early 2024?',
-    place: 'Loktak Lake, Manipur',
-    bbox: { minx: 93.7633, miny: 24.5045, maxx: 93.8614, maxy: 24.6139 },
-    center: [24.5584, 93.8132],
-    // Sentinel-1 IW swaths are wide; representative footprint, orbit-tilted.
-    footprint: { w: 0.46, h: 0.58, rot: -8 },
+    key: 'nisar',
+    chip: '2 · Download open scenes',
+    flow: 'Find open scenes → download them',
+    prompt: 'Get me NISAR radar over the Kosi river floodplain in August 2026, and download what\u2019s ready.',
+    place: 'Kosi River, Bihar',
+    bbox: { minx: 86.7500, miny: 25.3000, maxx: 87.1500, maxy: 25.7000 },
+    center: [25.5000, 86.9500],
+    sensor: 'SSAR GCOV · L-band radar',
+    res: '6.5 m',
+    window: 'Aug 2026',
+    // NISAR swaths are wide; representative footprint, orbit-tilted.
+    footprint: { w: 0.42, h: 0.52, rot: -9 },
     steps: [
-      { type: 'agent', txt: 'Loktak Lake resolves to a small area in Manipur.' },
-      { type: 'tool', fn: 'resolve_location', args: [['name', '"Loktak Lake"', 'n']],
+      { type: 'agent', txt: 'The Kosi floodplain is the area of interest. Resolve it to a bounding box first.' },
+      { type: 'tool', fn: 'resolve_location', args: [['name', '"Kosi River, Bihar"', 'n']],
         result: [
           '{ found: <s>true</s>,',
-          '&nbsp;&nbsp;name: <s>"Loktak Lake, Bishnupur, Manipur, India"</s>,',
-          '&nbsp;&nbsp;lat: <n>24.558</n>, lon: <n>93.813</n>,',
-          '&nbsp;&nbsp;bbox: { minx: <n>93.763</n>, miny: <n>24.504</n>, maxx: <n>93.861</n>, maxy: <n>24.614</n> } }'
+          '&nbsp;&nbsp;name: <s>"Kosi River, Bihar, India"</s>,',
+          '&nbsp;&nbsp;lat: <n>25.500</n>, lon: <n>86.950</n>,',
+          '&nbsp;&nbsp;bbox: { minx: <n>86.750</n>, miny: <n>25.300</n>, maxx: <n>87.150</n>, maxy: <n>25.700</n> } }'
         ] },
-      { type: 'agent', txt: 'Radar sees through cloud, which suits a monsoon wetland. In early 2024 only Sentinel-1A is flying, so only its scenes come back.' },
+      { type: 'agent', txt: 'NISAR is the NASA\u2013ISRO L-band radar mission \u2014 open data, and it sees through monsoon cloud. Its archive opens August 2026, so I search that window.' },
       { type: 'tool', fn: 'search_scenes',
-        args: [['satellite', '"Sentinel-1"', 'n'], ['start_date', '"2024-01-01"', 's'], ['end_date', '"2024-03-31"', 's'], ['bbox', '93.76,24.50,93.86,24.61', 'n']],
-        matched: 'Sentinel-1A · Sentinel-1B · Sentinel-1C · Sentinel-1D',
-        token: 'Sentinel-1A_SAR(IW)_GRD',
+        args: [['satellite', '"NISAR"', 'n'], ['start_date', '"2026-08-01"', 's'], ['end_date', '"2026-08-31"', 's'], ['bbox', '86.75,25.30,87.15,25.70', 'n']],
+        matched: 'NISAR',
+        token: 'NISAR_SSAR_GCOV',
         scenes: [
-          { id: 'S1A_IW_GRDH_20240112T121', dop: '2024-01-12', lat: 24.52, lon: 93.78, st: 'Ready' },
-          { id: 'S1A_IW_GRDH_20240205T121', dop: '2024-02-05', lat: 24.55, lon: 93.82, st: 'Archived' },
-          { id: 'S1A_IW_GRDH_20240229T121', dop: '2024-02-29', lat: 24.58, lon: 93.80, st: 'Ready' },
-          { id: 'S1A_IW_GRDH_20240324T121', dop: '2024-03-24', lat: 24.60, lon: 93.85, st: 'Archived' }
+          { id: 'NISAR_GCOV_20260809_A', dop: '2026-08-09', lat: 25.38, lon: 86.83, st: 'Ready' },
+          { id: 'NISAR_GCOV_20260816_B', dop: '2026-08-16', lat: 25.46, lon: 86.98, st: 'Ready' },
+          { id: 'NISAR_GCOV_20260821_C', dop: '2026-08-21', lat: 25.55, lon: 86.90, st: 'Archived' },
+          { id: 'NISAR_GCOV_20260828_D', dop: '2026-08-28', lat: 25.62, lon: 87.05, st: 'Ready' }
         ],
-        summary: [['Ready', '3 Ready'], ['Archived', '3 Archived']],
-        total: 6 },
-      { type: 'answer', html: '<b>6 Sentinel-1 radar scenes</b> over Loktak Lake. As ESA open data, every scene is either <b>Ready</b> to download or <b>Archived</b> (request it first if it 404s) — nothing to pay for.' }
+        summary: [['Ready', '3 Ready'], ['Archived', '1 Archived']],
+        total: 4 },
+      { type: 'agent', txt: 'Four scenes, three Ready to pull now. I\u2019ll save the search so it has a slug, then download the Ready ones.' },
+      { type: 'tool', fn: 'save_query',
+        args: [['satellite', '"NISAR"', 'n'], ['name', '"kosi-nisar-aug26"', 's']],
+        result: [
+          '{ status: <s>"ok"</s>,',
+          '&nbsp;&nbsp;slug: <s>"kosi-nisar-aug26"</s>, saved: <n>4</n> scenes }'
+        ] },
+      { type: 'agent', txt: 'Downloads need your Bhoonidhi login. Checking the session before I start.' },
+      { type: 'tool', fn: 'auth_status', args: [],
+        result: [
+          '{ authenticated: <s>true</s>, username: <s>"you@example.org"</s> }'
+        ] },
+      { type: 'download', fn: 'download_query',
+        args: [['slug', '"kosi-nisar-aug26"', 's'], ['select', '"Ready"', 's']],
+        job: 'dl_7fa2',
+        totalMb: 2140,
+        files: 3,
+        result: [
+          '{ job_id: <s>"dl_7fa2"</s>, started: <n>3</n> Ready scenes,',
+          '&nbsp;&nbsp;skipped: <n>1</n> Archived (request first), root: <s>"~/Downloads/kosi-nisar-aug26"</s> }'
+        ] },
+      { type: 'answer', html: '<b>Download complete</b> \u2014 3 NISAR GCOV scenes (\u2248 2.1 GB) landed in <span class="mono">~/Downloads/kosi-nisar-aug26</span>, each checksum-verified. The 1 Archived scene was skipped; I can request it on the portal so it stages for next time.' }
     ]
   },
   {
     key: 'chilika',
-    chip: 'Cartosat · Chilika Lake',
-    prompt: 'Cartosat scenes over Chilika Lake in early 2025.',
+    chip: '3 · Add priced data to cart',
+    flow: 'Find priced data → stage the cart',
+    prompt: 'Find Cartosat scenes over Chilika Lake in early 2025 and add them to my cart.',
     place: 'Chilika Lake, Odisha',
     bbox: { minx: 85.0934, miny: 19.4673, maxx: 85.6574, maxy: 19.9033 },
     center: [19.6853, 85.2504],
+    sensor: 'PAN + MX · optical',
+    res: '0.28–1.6 m',
+    window: 'Jan–Mar 2025',
     // Cartosat is high-res with a narrow swath: small footprints, orbit-tilted.
     footprint: { w: 0.12, h: 0.16, rot: -14 },
     steps: [
-      { type: 'agent', txt: '"Cartosat" names a family. It expands to every Cartosat platform the portal lists.' },
+      { type: 'agent', txt: 'Resolve Chilika Lake, then search. "Cartosat" names a family, so it expands to every Cartosat platform.' },
       { type: 'tool', fn: 'resolve_location', args: [['name', '"Chilika Lake"', 'n']],
         result: [
           '{ found: <s>true</s>,',
@@ -114,7 +149,63 @@ window.RUNS = [
         ],
         summary: [['Priced', '6 Priced'], ['OnOrder', '2 On order']],
         total: 8 },
-      { type: 'answer', html: '<b>8 Cartosat scenes</b> over Chilika Lake — all high-resolution and <b>Priced</b>, so none are free downloads. The availability field says so before you try.' }
+      { type: 'agent', txt: 'All high-resolution and commercial \u2014 none are free downloads, so downloading would skip them. For priced and on-order scenes the right move is the cart. Saving the search first for its slug.' },
+      { type: 'tool', fn: 'save_query',
+        args: [['satellite', '"Cartosat"', 'n'], ['name', '"chilika-cartosat-2025"', 's']],
+        result: [
+          '{ status: <s>"ok"</s>,',
+          '&nbsp;&nbsp;slug: <s>"chilika-cartosat-2025"</s>, saved: <n>8</n> scenes }'
+        ] },
+      { type: 'cart', fn: 'cart_add',
+        args: [['slug', '"chilika-cartosat-2025"', 's']],
+        result: [
+          '{ staged: <n>8</n>, routed: { priced: <n>6</n>, onorder: <n>2</n> }, failed: <n>0</n> }'
+        ] },
+      { type: 'answer', html: '<b>8 scenes staged to your cart</b> \u2014 6 to the priced cart, 2 to the on-order cart, each routed by its access type. The purchase itself happens on the Bhoonidhi Browse &amp; Order portal; the agent takes it right up to that step.' }
+    ]
+  },
+  {
+    key: 'refresh',
+    chip: '4 · Keep a search fresh',
+    flow: 'Save once → check back for new scenes',
+    prompt: 'Check my saved Sundarbans flood watch for any new radar scenes.',
+    place: 'Sundarbans, West Bengal',
+    bbox: { minx: 88.7000, miny: 21.6000, maxx: 89.2000, maxy: 22.0000 },
+    center: [21.8000, 88.9500],
+    sensor: 'SAR IW · radar',
+    res: '20 m',
+    window: 'Jun 2024 → now',
+    // Sentinel-1 IW swaths are wide; representative footprint, orbit-tilted.
+    footprint: { w: 0.46, h: 0.56, rot: -7 },
+    steps: [
+      { type: 'agent', txt: 'You saved this search earlier. First I find its slug, then check for scenes added since.' },
+      { type: 'tool', fn: 'list_queries', args: [],
+        result: [
+          '{ queries: [ {',
+          '&nbsp;&nbsp;slug: <s>"sundarbans-flood-watch"</s>,',
+          '&nbsp;&nbsp;satellites: <s>"Sentinel-1"</s>, scenes: <n>9</n>,',
+          '&nbsp;&nbsp;summary: <s>"6 Ready, 3 Archived"</s> } ] }'
+        ] },
+      { type: 'agent', txt: 'Found it \u2014 9 scenes saved. A refresh looks from just before the saved end date through today, so nothing that arrived late is missed. It appends new scenes; it never re-downloads or removes anything.' },
+      { type: 'refresh', fn: 'query refresh',
+        args: [['slug', '"sundarbans-flood-watch"', 's']],
+        matched: 'Sentinel-1A',
+        token: 'Sentinel-1A_SAR(IW)_GRD',
+        newScenes: [
+          { id: 'S1A_IW_GRDH_20240712T120', dop: '2024-07-12', lat: 21.72, lon: 88.85, st: 'Ready' },
+          { id: 'S1A_IW_GRDH_20240724T120', dop: '2024-07-24', lat: 21.86, lon: 89.02, st: 'Ready' }
+        ],
+        priorScenes: [
+          { id: 'S1A_IW_GRDH_20240618T120', dop: '2024-06-18', lat: 21.78, lon: 88.92, st: 'Ready' },
+          { id: 'S1A_IW_GRDH_20240630T120', dop: '2024-06-30', lat: 21.90, lon: 88.80, st: 'Archived' }
+        ],
+        result: [
+          '{ slug: <s>"sundarbans-flood-watch"</s>,',
+          '&nbsp;&nbsp;new: <n>2</n>, total_now: <n>11</n>, removed: <n>0</n> }'
+        ],
+        summary: [['Ready', '8 Ready'], ['Archived', '3 Archived']],
+        total: 11 },
+      { type: 'answer', html: '<b>2 new radar scenes</b> since you last looked \u2014 both Ready, from mid and late July. Your saved search now holds <b>11</b>, added to the ones already there. Re-run it any time to keep the flood watch current, then download the new Ready scenes when you want them.' }
     ]
   }
 ];
@@ -122,22 +213,22 @@ window.RUNS = [
 window.CLIENTS = [
   { name: 'MCP Inspector',
     desc: 'A browser UI to click each tool and watch live responses. No client config — a good first check that the server runs.',
-    code: '<span class="cm"># after: pip install bhoonidhi-mcp</span>\nnpx @modelcontextprotocol/inspector bhoonidhi-mcp',
+    code: '<span class="cm"># after: git clone + uv sync</span>\nnpx @modelcontextprotocol/inspector \\\n  /path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp',
     note: 'Start here to confirm the server handshakes before wiring a real client.' },
   { name: 'Claude Code',
     desc: 'Register it with the <code>claude</code> CLI. Inside a session, <code>/mcp</code> lists it as connected.',
-    code: 'claude mcp add bhoonidhi -- bhoonidhi-mcp\n\n<span class="cm"># inside a claude session:</span>\n<span class="cm"># /mcp  ->  "bhoonidhi" connected</span>',
+    code: 'claude mcp add bhoonidhi -- \\\n  /path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp\n\n<span class="cm"># inside a claude session:</span>\n<span class="cm"># /mcp  ->  "bhoonidhi" connected</span>',
     note: 'Run inside a project directory to write a local .mcp.json, or add --scope user for global.' },
   { name: 'OpenCode',
     desc: 'Add a local server block to <code>~/.config/opencode/opencode.json</code>, then restart.',
-    code: '{\n  <span class="str">"$schema"</span>: <span class="str">"https://opencode.ai/config.json"</span>,\n  <span class="str">"mcp"</span>: {\n    <span class="str">"bhoonidhi"</span>: {\n      <span class="str">"type"</span>: <span class="str">"local"</span>,\n      <span class="str">"command"</span>: [<span class="str">"bhoonidhi-mcp"</span>],\n      <span class="str">"enabled"</span>: <span class="kw">true</span>\n    }\n  }\n}',
-    note: 'Use the absolute path to the binary if the client does not inherit your shell PATH.' },
+    code: '{\n  <span class="str">"$schema"</span>: <span class="str">"https://opencode.ai/config.json"</span>,\n  <span class="str">"mcp"</span>: {\n    <span class="str">"bhoonidhi"</span>: {\n      <span class="str">"type"</span>: <span class="str">"local"</span>,\n      <span class="str">"command"</span>: [<span class="str">"/path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp"</span>],\n      <span class="str">"enabled"</span>: <span class="kw">true</span>\n    }\n  }\n}',
+    note: 'Use the absolute path to the entry point in the project\u2019s .venv — most reliable across clients.' },
   { name: 'Claude Desktop',
     desc: 'Edit <code>claude_desktop_config.json</code> (create it if missing), then fully quit and relaunch. Tools appear under the plug icon.',
-    code: '{\n  <span class="str">"mcpServers"</span>: {\n    <span class="str">"bhoonidhi"</span>: {\n      <span class="str">"command"</span>: <span class="str">"bhoonidhi-mcp"</span>,\n      <span class="str">"args"</span>: []\n    }\n  }\n}',
-    note: 'GUI apps often miss your shell PATH — use the absolute path to the installed binary if the server does not appear.' },
+    code: '{\n  <span class="str">"mcpServers"</span>: {\n    <span class="str">"bhoonidhi"</span>: {\n      <span class="str">"command"</span>: <span class="str">"/path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp"</span>,\n      <span class="str">"args"</span>: []\n    }\n  }\n}',
+    note: 'GUI apps often miss your shell PATH, so point at the absolute path to the entry point.' },
   { name: 'Any stdio client',
     desc: 'The same shape works across MCP clients: a named server with a command and empty args.',
-    code: '{\n  <span class="str">"mcpServers"</span>: {\n    <span class="str">"bhoonidhi"</span>: {\n      <span class="str">"command"</span>: <span class="str">"bhoonidhi-mcp"</span>,\n      <span class="str">"args"</span>: []\n    }\n  }\n}',
-    note: 'Check your client\u2019s config path; the server command is the same everywhere.' }
+    code: '{\n  <span class="str">"mcpServers"</span>: {\n    <span class="str">"bhoonidhi"</span>: {\n      <span class="str">"command"</span>: <span class="str">"/path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp"</span>,\n      <span class="str">"args"</span>: []\n    }\n  }\n}',
+    note: 'Downloads and cart use your own Bhoonidhi login \u2014 run <span class="mono">bhd auth login</span> once in your terminal. Credentials stay with you; the agent only sees whether a session exists.' }
 ];

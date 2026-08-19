@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here.
 
+## [0.2.0]
+
+Adds stateful saved queries and authenticated actions: an agent can now save a
+search, then download open-access scenes or stage scenes to the cart, all in
+conversation.
+
+### Added
+
+- **Saved queries turn a stateless search into a reusable slug** — `save_query` persists a search (the same arguments `search_scenes` takes) and `list_queries` / `show_query` / `remove_query` manage the slugs, so a search can be acted on later instead of evaporating; the portal keys every download and cart action off that slug, so persistence had to come first.
+- **`auth_status` reports whether a login is configured** — read-only and secret-free by construction, it reflects the session the `bhd` CLI writes (or optional `BHOONIDHI_USERNAME` / `BHOONIDHI_PASSWORD` env credentials) without ever accepting a password as a tool argument or returning a token.
+- **`download_query` fetches open-access scenes as a background job** — it confines output to a configured allow-listed root (`<root>/<slug>/`, never a caller-chosen path), returns a job id immediately, and runs on a daemon thread independent of the conversation, because a stdio server cannot stream progress inside a blocking tool call.
+- **`download_status` and `download_wait` expose live byte-level progress** — status reports megabytes, transfer rate, and a percent once sizes are known (the portal only sends them once a transfer starts), and wait blocks until completion or a capped timeout so a delegated watcher can follow a long download without the main agent sleep-looping to babysit it.
+- **`cart_add` / `cart_list` / `cart_remove` stage scenes that are not free-and-ready** — on-order and priced scenes route to the Bhoonidhi cart, with priced scenes still needing purchase on the portal afterwards.
+
+### Changed
+
+- **Search results now steer to the in-server tools** — the `how_to_act` block points at `save_query`, `download_query`, and `cart_add` for each availability state instead of printing `bhd` CLI commands, and a large download is flagged from live byte totals rather than a scene count, so a small-count multi-gigabyte fetch is caught.
+
 ## [0.1.1]
 
 ### Added
