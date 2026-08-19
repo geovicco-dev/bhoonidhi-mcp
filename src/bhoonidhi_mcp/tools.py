@@ -714,10 +714,13 @@ _NOT_AUTHENTICATED = {
 
 
 def _ensure_authenticated(client: Any) -> dict[str, Any] | None:
-    """Confirm a usable session, refreshing an expired token if possible.
+    """Confirm a usable session, establishing one from the environment if needed.
 
-    Returns None when the client can act, or the clean not-authenticated result
-    when it cannot. Never raises and never touches the password or token.
+    Tries three sources in order: a session already held, a lapsed token renewed
+    without a password, and finally a headless login from BHOONIDHI_USERNAME /
+    BHOONIDHI_PASSWORD in the environment. Returns None when the client can act,
+    or the clean not-authenticated result when it cannot. Never raises, and reads
+    credentials only from the environment — never from a tool argument.
     """
     try:
         with sdk_console_to_stderr():
@@ -727,6 +730,15 @@ def _ensure_authenticated(client: Any) -> dict[str, Any] | None:
             # a password before giving up.
             if client.refresh() is not None:
                 return None
+            # No usable session: a headless deployment can supply credentials in
+            # the environment, so log in with those rather than requiring an
+            # interactive 'bhd auth login' first.
+            username = os.environ.get("BHOONIDHI_USERNAME")
+            password = os.environ.get("BHOONIDHI_PASSWORD")
+            if username and password:
+                client.login(username, password)
+                if client.is_authenticated:
+                    return None
     except BhoonidhiAuthError:
         pass
     return dict(_NOT_AUTHENTICATED)
@@ -735,10 +747,13 @@ def _ensure_authenticated(client: Any) -> dict[str, Any] | None:
 def auth_status(client: Any) -> dict[str, Any]:
     """Report whether a usable Bhoonidhi session is configured.
 
-    Reads the held session only — never returns the token or password. When a
-    session is present but its token has lapsed, reports authenticated=False so
-    the agent tells the user to log in again.
+    Establishes a session if one can be — from a held login, a renewed token, or
+    BHOONIDHI_USERNAME / BHOONIDHI_PASSWORD in the environment — so the report
+    matches what a download or cart action would actually find. Never returns the
+    token or password. A username with a lapsed token reports authenticated=False
+    so the agent tells the user to log in again.
     """
+    _ensure_authenticated(client)
     try:
         with sdk_console_to_stderr():
             username = client.whoami()

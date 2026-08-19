@@ -236,12 +236,13 @@ def remove_query(slug: str) -> dict:
 def auth_status() -> dict:
     """Report whether a Bhoonidhi login is configured for downloads and cart.
 
-    Read-only: it never asks for or returns a password or token. Returns
-    authenticated=True with the username when a usable session is held, or
-    authenticated=False with guidance to log in ('bhd auth login' out of band,
-    or set BHOONIDHI_USERNAME / BHOONIDHI_PASSWORD in the server's environment).
-    Call this before download or cart actions to tell the user if a login is
-    needed.
+    Never asks for or returns a password or token. If credentials are set in the
+    server's environment (BHOONIDHI_USERNAME / BHOONIDHI_PASSWORD) it establishes
+    the session so the answer matches what a download or cart action would find.
+    Returns authenticated=True with the username when a usable session exists, or
+    authenticated=False with guidance to log in ('bhd auth login' out of band, or
+    set those environment variables). Call this before download or cart actions
+    to tell the user if a login is needed.
     """
     return tools.auth_status(_client)
 

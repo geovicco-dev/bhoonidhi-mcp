@@ -79,10 +79,13 @@ class _FakeCart:
 
 class _FakeClient:
     def __init__(self, *, authenticated=True, username="alice",
-                 scenes=None, download_impl=None, cart=None, refresh_ok=False):
+                 scenes=None, download_impl=None, cart=None, refresh_ok=False,
+                 login_ok=False):
         self.is_authenticated = authenticated
         self._username = username
         self._refresh_ok = refresh_ok
+        self._login_ok = login_ok
+        self.login_calls = []
         self.query = _FakeQuery(scenes if scenes is not None else [_READY],
                                 download_impl=download_impl)
         self.cart = cart if cart is not None else _FakeCart()
@@ -91,6 +94,15 @@ class _FakeClient:
         # A username can be known even with a lapsed token, so it is not gated
         # on is_authenticated here.
         return self._username
+
+    def login(self, username, password):
+        # Model the SDK: a good credential establishes a session, a bad one
+        # raises. Record the call so tests can assert it happened from env only.
+        self.login_calls.append((username, password))
+        if not self._login_ok:
+            raise BhoonidhiAuthError("bad credentials")
+        self.is_authenticated = True
+        self._username = username
 
     def refresh(self):
         return object() if self._refresh_ok else None
@@ -157,6 +169,47 @@ def test_expired_token_refresh_unblocks_download():
     client = _FakeClient(authenticated=False, refresh_ok=True)
     out = download_query(client, "q1")
     assert out["status"] == "started"
+
+
+def test_env_credentials_unblock_download(monkeypatch):
+    """With no session, valid env credentials establish one and let a download run."""
+    monkeypatch.setenv("BHOONIDHI_USERNAME", "bob")
+    monkeypatch.setenv("BHOONIDHI_PASSWORD", "hunter2")
+    client = _FakeClient(authenticated=False, login_ok=True)
+    out = download_query(client, "q1")
+    assert out["status"] == "started"
+    # Credentials came from the environment, never a tool argument.
+    assert client.login_calls == [("bob", "hunter2")]
+
+
+def test_env_credentials_rejected_stays_not_authenticated(monkeypatch):
+    monkeypatch.setenv("BHOONIDHI_USERNAME", "bob")
+    monkeypatch.setenv("BHOONIDHI_PASSWORD", "wrong")
+    client = _FakeClient(authenticated=False, login_ok=False)
+    out = download_query(client, "q1")
+    assert out["status"] == "not_authenticated"
+    assert client.login_calls == [("bob", "wrong")]
+
+
+def test_no_env_credentials_no_login_attempt(monkeypatch):
+    monkeypatch.delenv("BHOONIDHI_USERNAME", raising=False)
+    monkeypatch.delenv("BHOONIDHI_PASSWORD", raising=False)
+    client = _FakeClient(authenticated=False)
+    out = download_query(client, "q1")
+    assert out["status"] == "not_authenticated"
+    # No partial credential set means no login attempt at all.
+    assert client.login_calls == []
+
+
+def test_auth_status_reports_authenticated_after_env_login(monkeypatch):
+    """auth_status must reflect what a download would find, not the raw session."""
+    monkeypatch.setenv("BHOONIDHI_USERNAME", "bob")
+    monkeypatch.setenv("BHOONIDHI_PASSWORD", "hunter2")
+    out = auth_status(_FakeClient(authenticated=False, login_ok=True))
+    assert out["authenticated"] is True
+    assert out["username"] == "bob"
+    blob = repr(out).lower()
+    assert "password" not in blob and "hunter2" not in blob
 
 
 def test_download_unknown_slug_is_not_found():
