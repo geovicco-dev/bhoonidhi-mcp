@@ -11,6 +11,9 @@ dist/
 .ruff_cache/
 .pytest_cache/
 
+# built docs (mkdocs output)
+site/
+
 # env
 .env
 
