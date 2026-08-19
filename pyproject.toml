@@ -17,11 +17,6 @@ dependencies = [
 
 urls = { "Repository" = "https://github.com/geovicco-dev/bhoonidhi-mcp" }
 
-# TEMPORARY (feat/preview-download): use the local downloader until 0.5.3 is
-# published to PyPI. Remove this block before merging so CI resolves from PyPI.
-[tool.uv.sources]
-bhoonidhi-downloader = { path = "../bhoonidhi-downloader", editable = true }
-
 [project.scripts]
 bhoonidhi-mcp = "bhoonidhi_mcp.server:main"
 
