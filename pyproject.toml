@@ -9,13 +9,18 @@ authors = [
     { name = "Aditya Sharma", email = "geovicco.dev@gmail.com" }
 ]
 dependencies = [
-    "bhoonidhi-downloader>=0.5.2,<0.6",
+    "bhoonidhi-downloader>=0.5.3,<0.6",
     "mcp>=2.0",
     "geopy>=2.4",
     "rapidfuzz>=3.0",
 ]
 
 urls = { "Repository" = "https://github.com/geovicco-dev/bhoonidhi-mcp" }
+
+# TEMPORARY (feat/preview-download): use the local downloader until 0.5.3 is
+# published to PyPI. Remove this block before merging so CI resolves from PyPI.
+[tool.uv.sources]
+bhoonidhi-downloader = { path = "../bhoonidhi-downloader", editable = true }
 
 [project.scripts]
 bhoonidhi-mcp = "bhoonidhi_mcp.server:main"

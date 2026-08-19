@@ -91,6 +91,55 @@ def search_scenes(
     )
 
 
+@server.tool()
+def preview_download(
+    satellite: str,
+    start_date: str,
+    end_date: str,
+    out_dir: str = "./downloads",
+    minx: float | None = None,
+    maxx: float | None = None,
+    miny: float | None = None,
+    maxy: float | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+    radius_km: float | None = None,
+    sensor: str | None = None,
+    force: bool = False,
+) -> dict:
+    """Dry-run a download for a search: show what would be fetched, no login.
+
+    Takes the same arguments as search_scenes, plus out_dir (where files would
+    go) and force (preview re-downloading files already present). It runs the
+    search and predicts, per scene, what a real download would do: would_download
+    (staged, ready), may_404 (open data but archived — attempted but may fail
+    until requested on the portal), already_here / already_elsewhere (a matching
+    file exists), or skipped_on_order / skipped_priced (needs the portal).
+
+    Use this before telling a user to download, so they know how many scenes are
+    actually fetchable. Nothing is downloaded and no login is used. File sizes
+    are not known until a download starts (the portal exposes them only in the
+    download response headers), and interrupted downloads cannot be resumed —
+    both are stated in the result's disclaimers.
+    """
+    return tools.preview_download(
+        _client,
+        satellite,
+        start_date,
+        end_date,
+        out_dir=out_dir,
+        minx=minx,
+        maxx=maxx,
+        miny=miny,
+        maxy=maxy,
+        lat=lat,
+        lon=lon,
+        radius_km=radius_km,
+        sensor=sensor,
+        force=force,
+    )
+
+
 @server.resource("bhoonidhi://archive")
 def archive_resource() -> str:
     """The portal's satellite/sensor vocabulary, as read-only context."""

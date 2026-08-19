@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 import bhoonidhi_mcp.tools as tools_module
-from bhoonidhi_mcp.tools import list_archive, search_scenes
+from bhoonidhi_mcp.tools import list_archive, preview_download, search_scenes
 
 _ARCHIVE = json.loads(
     (Path(__file__).parent / "fixtures" / "archive_sample.json").read_text()
@@ -23,6 +23,8 @@ _SCENE = {
     "DOP": "06JAN2024",
     "PRICED": "OpenData_DirectDownload",
     "CURR_SCENE_NO": "Y",  # staged -> Ready
+    "FILENAME": "sen2a_scene",
+    "DIRPATH": "archive/2024/01",
     "SCENE_CENTER_LAT": "25.6",
     "SCENE_CENTER_LONG": "91.9",
 }
@@ -196,3 +198,60 @@ def test_portal_rejecting_all_selections_is_a_clean_empty_result():
     assert out["scenes"] == []
     assert out["matched_satellites"]  # tells the agent what was tried
     assert out["reason"]
+
+
+def test_preview_download_classifies_and_disclaims(tmp_path):
+    ready = _scene("OpenData_DirectDownload", "Y")
+    archived = _scene("OpenData_DirectDownload")  # not staged -> may_404
+    priced = _scene("Priced")
+    out = preview_download(
+        _FakeClient(scenes=[ready, archived, priced]),
+        "Sentinel-2",
+        "2024-01-01",
+        "2024-01-15",
+        out_dir=str(tmp_path),
+        minx=91.7,
+        maxx=92.0,
+        miny=25.4,
+        maxy=25.7,
+    )
+    assert out["status"] == "ok"
+    assert out["total"] == 3
+    statuses = [s["status"] for s in out["scenes"]]
+    assert statuses == ["would_download", "may_404", "skipped_priced"]
+    assert out["status_counts"] == {
+        "would_download": 1,
+        "may_404": 1,
+        "skipped_priced": 1,
+    }
+    # Every scene carries a plain-English meaning and a destination path.
+    assert all(s["meaning"] and s["out_path"] for s in out["scenes"])
+    # The honest disclaimers are always present.
+    joined = " ".join(out["disclaimers"]).lower()
+    assert "dry run" in joined
+    assert "size" in joined and "cannot be resumed" in joined
+
+
+def test_preview_download_reuses_search_error_paths():
+    # Ambiguous satellite short-circuits before any preview.
+    amb = preview_download(
+        _FakeClient(), "LISS", "2024-01-01", "2024-01-15", minx=0, maxx=1, miny=0, maxy=1
+    )
+    assert amb["status"] == "ambiguous_satellite"
+    assert amb["candidates"]
+
+
+def test_preview_force_would_redownload_existing_file(tmp_path):
+    ready = _scene("OpenData_DirectDownload", "Y")
+    # Pre-place the file the preview expects, so a normal run says already_here.
+    (tmp_path / "sen2a_scene.zip").write_bytes(b"x")
+    normal = preview_download(
+        _FakeClient(scenes=[ready]), "Sentinel-2", "2024-01-01", "2024-01-15",
+        out_dir=str(tmp_path), minx=91.7, maxx=92.0, miny=25.4, maxy=25.7,
+    )
+    assert normal["scenes"][0]["status"] == "already_here"
+    forced = preview_download(
+        _FakeClient(scenes=[ready]), "Sentinel-2", "2024-01-01", "2024-01-15",
+        out_dir=str(tmp_path), force=True, minx=91.7, maxx=92.0, miny=25.4, maxy=25.7,
+    )
+    assert forced["scenes"][0]["status"] == "would_download"

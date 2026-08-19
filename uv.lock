@@ -51,8 +51,8 @@ wheels = [
 
 [[package]]
 name = "bhoonidhi-downloader"
-version = "0.5.2"
-source = { registry = "https://pypi.org/simple" }
+version = "0.5.3"
+source = { editable = "../bhoonidhi-downloader" }
 dependencies = [
     { name = "pydantic" },
     { name = "requests" },
@@ -60,9 +60,29 @@ dependencies = [
     { name = "tabulate" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e0/db/8e891d142051ac4db02e76e9847459bebd2f098fd0a862e9842a1af3b0ac/bhoonidhi_downloader-0.5.2.tar.gz", hash = "sha256:e304d98701a0294af4491c1bd8005aed1367cad68d7ccbe33241250995639548", size = 254456, upload-time = "2026-08-18T12:46:14.8Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/57/f6/725672bec1efe849ade63c6aa32f3c03d4a9dd4278b3f372c4abdd264ade/bhoonidhi_downloader-0.5.2-py3-none-any.whl", hash = "sha256:b54a39c2944f929b7c7df47af0d3b8264a0c4e0899789b0981cbe9108724b05a", size = 104137, upload-time = "2026-08-18T12:46:13.609Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.7.0" },
+    { name = "requests", specifier = ">=2.32.3" },
+    { name = "rich", specifier = ">=13.7.0" },
+    { name = "tabulate", specifier = ">=0.9.0" },
+    { name = "typer", specifier = ">=0.12.3" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "cairosvg", specifier = ">=2.7.1" },
+    { name = "griffe-pydantic", specifier = ">=1.3.1" },
+    { name = "ipykernel", specifier = ">=6.29.5" },
+    { name = "ipywidgets", specifier = ">=8.1.3" },
+    { name = "mkdocs-jupyter", specifier = ">=0.25.1" },
+    { name = "mkdocs-material", extras = ["imaging"], specifier = ">=9.5.30" },
+    { name = "mkdocstrings", extras = ["python"], specifier = ">=1.0.6" },
+    { name = "pytest", specifier = ">=8.3.0" },
+    { name = "python-dotenv", specifier = ">=1.2.2" },
+    { name = "pyyaml", specifier = ">=6.0.1" },
+    { name = "ruff", specifier = ">=0.14.0" },
 ]
 
 [[package]]
@@ -84,7 +104,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "bhoonidhi-downloader", specifier = ">=0.5.2,<0.6" },
+    { name = "bhoonidhi-downloader", editable = "../bhoonidhi-downloader" },
     { name = "geopy", specifier = ">=2.4" },
     { name = "mcp", specifier = ">=2.0" },
     { name = "rapidfuzz", specifier = ">=3.0" },

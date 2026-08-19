@@ -18,6 +18,7 @@ from datetime import datetime
 from typing import Any
 
 from bhoonidhi_downloader.exceptions import BhoonidhiError, BhoonidhiValidationError
+from bhoonidhi_downloader.sdk import preview_download as _sdk_preview
 from bhoonidhi_downloader.sdk import scene_availability
 
 from .geocode import resolve_location as _resolve_place
@@ -126,14 +127,68 @@ def search_scenes(
     an area either as a bounding box (minx/maxx/miny/maxy) or a point plus radius
     (lat/lon/radius_km).
     """
+    error, scenes, selections = _run_search(
+        client, satellite, start_date, end_date,
+        minx=minx, maxx=maxx, miny=miny, maxy=maxy,
+        lat=lat, lon=lon, radius_km=radius_km, sensor=sensor,
+    )
+    if error is not None:
+        return error
+
+    shaped = [_shape_scene(s) for s in scenes[:max_results]]
+    counts = _availability_summary(scenes)
+    result: dict[str, Any] = {
+        "status": "ok",
+        "matched_satellites": [s.satellite for s in selections],
+        "total": len(scenes),
+        "returned": len(shaped),
+        "availability_summary": counts,
+        "summary": _plain_summary(counts),
+        "scenes": shaped,
+    }
+    if scenes:
+        create_cmd = _bhd_create_command(
+            start_date, end_date, selections,
+            minx, maxx, miny, maxy, lat, lon, radius_km,
+        )
+        result["how_to_act"] = _how_to_act(counts, create_cmd)
+    return result
+
+
+def _run_search(
+    client: Any,
+    satellite: str,
+    start_date: str,
+    end_date: str,
+    *,
+    minx: float | None = None,
+    maxx: float | None = None,
+    miny: float | None = None,
+    maxy: float | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+    radius_km: float | None = None,
+    sensor: str | None = None,
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]], list[Any]]:
+    """Resolve the satellite and run a stateless search.
+
+    Returns ``(error, scenes, selections)``: on any problem ``error`` is the
+    ready-to-return result dict and the other two are empty; on success
+    ``error`` is None. Shared by ``search_scenes`` and ``preview_download`` so
+    both classify the same scenes with identical resolution and error handling.
+    """
     vocab = _get_vocab(client)
     resolution = resolve_satellite(satellite, vocab, threshold=FUZZY_THRESHOLD)
     if not resolution.is_confident:
-        return {
-            "status": "ambiguous_satellite",
-            "query": satellite,
-            "candidates": resolution.candidates,
-        }
+        return (
+            {
+                "status": "ambiguous_satellite",
+                "query": satellite,
+                "candidates": resolution.candidates,
+            },
+            [],
+            [],
+        )
 
     selections = resolution.selections
     if sensor:
@@ -144,7 +199,7 @@ def search_scenes(
         start = datetime.fromisoformat(start_date)
         end = datetime.fromisoformat(end_date)
     except ValueError as exc:
-        return {"status": "error", "error": f"Invalid date (use YYYY-MM-DD): {exc}"}
+        return ({"status": "error", "error": f"Invalid date (use YYYY-MM-DD): {exc}"}, [], [])
 
     try:
         with sdk_console_to_stderr():
@@ -165,35 +220,22 @@ def search_scenes(
         # The satellite resolved, but the portal rejected every selection —
         # typically the mission carries no data in this date range or area.
         # Report it as an empty, actionable result rather than a raw error.
-        return {
-            "status": "no_searchable_scenes",
-            "matched_satellites": [s.satellite for s in selections],
-            "reason": str(exc),
-            "total": 0,
-            "scenes": [],
-        }
+        return (
+            {
+                "status": "no_searchable_scenes",
+                "matched_satellites": [s.satellite for s in selections],
+                "reason": str(exc),
+                "total": 0,
+                "scenes": [],
+            },
+            [],
+            [],
+        )
     except BhoonidhiError as exc:
-        return {"status": "error", "error": str(exc)}
+        return ({"status": "error", "error": str(exc)}, [], [])
 
     scenes = query.scenes if query else []
-    shaped = [_shape_scene(s) for s in scenes[:max_results]]
-    counts = _availability_summary(scenes)
-    result: dict[str, Any] = {
-        "status": "ok",
-        "matched_satellites": [s.satellite for s in selections],
-        "total": len(scenes),
-        "returned": len(shaped),
-        "availability_summary": counts,
-        "summary": _plain_summary(counts),
-        "scenes": shaped,
-    }
-    if scenes:
-        create_cmd = _bhd_create_command(
-            start_date, end_date, selections,
-            minx, maxx, miny, maxy, lat, lon, radius_km,
-        )
-        result["how_to_act"] = _how_to_act(counts, create_cmd)
-    return result
+    return (None, scenes, selections)
 
 
 def _availability_summary(scenes: list[dict[str, Any]]) -> dict[str, int]:
@@ -296,4 +338,103 @@ def _how_to_act(counts: dict[str, int], create_cmd: str) -> dict[str, Any]:
         ),
         "reproduce_search": create_cmd + "   # saves the search and prints a <slug>",
         "then": then,
+    }
+
+
+# Plain-English gloss for each preview status, so the agent can explain what a
+# dry-run outcome means without decoding the raw token.
+_PREVIEW_PHRASE = {
+    "would_download": "staged and ready — would download",
+    "may_404": "open data but archived — attempted, but may 404 until requested on the portal",
+    "already_here": "already present at the destination — skipped",
+    "already_elsewhere": "already downloaded to another location — skipped",
+    "skipped_on_order": "on-order — skipped, must be requested on the portal first",
+    "skipped_priced": "priced — skipped, must be purchased on the portal",
+}
+
+
+def _preview_summary(total: int, ready: int, archived: int, out_dir: str) -> str:
+    """One-sentence read of a download preview, honest about archived scenes."""
+    if not total:
+        return "No scenes matched, so nothing would be downloaded."
+    skipped = total - ready - archived
+    parts = [f"{ready} ready to download now"]
+    if archived:
+        parts.append(f"{archived} archived (attempted, but may 404 until requested)")
+    if skipped:
+        parts.append(f"{skipped} skipped (already present, or need a portal request/purchase)")
+    return f"Into {out_dir}: " + "; ".join(parts) + "."
+
+
+def preview_download(
+    client: Any,
+    satellite: str,
+    start_date: str,
+    end_date: str,
+    *,
+    out_dir: str = "./downloads",
+    minx: float | None = None,
+    maxx: float | None = None,
+    miny: float | None = None,
+    maxy: float | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+    radius_km: float | None = None,
+    sensor: str | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
+    """Dry-run a download: classify what downloading these scenes would do.
+
+    Runs the same stateless search as ``search_scenes``, then predicts, per
+    scene, what a real download into ``out_dir`` would do — without fetching
+    anything or needing a login. No file size is available ahead of time (the
+    portal exposes it only once a download starts), so this reports what and
+    where, not how big.
+    """
+    error, scenes, selections = _run_search(
+        client, satellite, start_date, end_date,
+        minx=minx, maxx=maxx, miny=miny, maxy=maxy,
+        lat=lat, lon=lon, radius_km=radius_km, sensor=sensor,
+    )
+    if error is not None:
+        return error
+
+    previews = _sdk_preview(scenes, out_dir, force=force)
+    items = [
+        {
+            "id": p.scene_id,
+            "status": p.status,
+            "meaning": _PREVIEW_PHRASE.get(p.status, p.status),
+            "filename": p.filename,
+            "out_path": p.out_path,
+            **({"note": p.note} if p.note else {}),
+        }
+        for p in previews
+    ]
+
+    status_counts: dict[str, int] = {}
+    for item in items:
+        status_counts[item["status"]] = status_counts.get(item["status"], 0) + 1
+    ready = status_counts.get("would_download", 0)
+    archived = status_counts.get("may_404", 0)
+
+    return {
+        "status": "ok",
+        "matched_satellites": [s.satellite for s in selections],
+        "total": len(items),
+        "out_dir": out_dir,
+        "status_counts": status_counts,
+        "summary": _preview_summary(len(items), ready, archived, out_dir),
+        "disclaimers": [
+            "This is a dry run — nothing was downloaded and no login was used.",
+            (
+                "File sizes are unknown until a download starts; the portal "
+                "exposes them only in the download response headers."
+            ),
+            (
+                "Interrupted downloads restart from scratch — the portal has no "
+                "HTTP range support, so partial files cannot be resumed."
+            ),
+        ],
+        "scenes": items,
     }

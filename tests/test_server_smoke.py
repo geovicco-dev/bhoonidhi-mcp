@@ -12,4 +12,9 @@ def test_server_has_a_name():
 def test_expected_tools_are_registered():
     tools = anyio.run(server.list_tools)
     names = {t.name for t in tools}
-    assert {"list_archive", "resolve_location", "search_scenes"} <= names
+    assert {
+        "list_archive",
+        "resolve_location",
+        "search_scenes",
+        "preview_download",
+    } <= names
