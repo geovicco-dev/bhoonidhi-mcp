@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## [0.1.1]
+
+### Added
+
+- **`search_scenes` and `preview_download` take a `product` filter** — the SDK's `Selection` already carried a `product` field (the third part of the portal's `SAT:SEN:PROD` token, e.g. `GCOV` under `NISAR:SSAR`), but the MCP tools only ever set `sensor`, so narrowing to a specific product silently fell back to a full-sensor search; `product` now reaches every resolved selection and shows up correctly in the reproduced `bhd` command.
+
 ## [0.1.0]
 
 First working release: the Phase 1 read-only, no-authentication server, with all

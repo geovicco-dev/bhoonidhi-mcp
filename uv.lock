@@ -67,7 +67,7 @@ wheels = [
 
 [[package]]
 name = "bhoonidhi-mcp"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "bhoonidhi-downloader" },

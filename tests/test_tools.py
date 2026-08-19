@@ -47,10 +47,12 @@ class _FakeArchive:
 class _FakeQuery:
     def __init__(self, scenes):
         self._scenes = scenes
+        self.last_selections = None
 
     def create(self, *args, **kwargs):
         from types import SimpleNamespace
 
+        self.last_selections = kwargs.get("selections")
         return SimpleNamespace(scenes=self._scenes)
 
 
@@ -224,6 +226,23 @@ def test_valid_request_is_not_flagged_as_invalid():
         minx=91.7, maxx=92.0, miny=25.4, maxy=25.7,
     )
     assert out["status"] == "ok"
+
+
+def test_product_narrows_every_selection_and_reaches_the_sdk():
+    """product is a Selection field (the SAT_SEN_PROD token's third part), not a
+    sensor — it must reach the SDK query unchanged on every expanded selection,
+    and show up in the reproduced bhd command as SAT:SEN:PROD."""
+    client = _FakeClient(scenes=[_SCENE])
+    out = search_scenes(
+        client, "Sentinel-2", "2024-01-01", "2024-01-15",
+        minx=91.7, maxx=92.0, miny=25.4, maxy=25.7,
+        sensor="MSI", product="Level-1C",
+    )
+    assert out["status"] == "ok"
+    selections = client.query.last_selections
+    assert selections and all(s.sensor == "MSI" for s in selections)
+    assert selections and all(s.product == "Level-1C" for s in selections)
+    assert "Sentinel-2A:MSI:Level-1C" in out["how_to_act"]["reproduce_search"]
 
 
 def test_portal_rejecting_all_selections_is_a_clean_empty_result():
