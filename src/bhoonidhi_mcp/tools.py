@@ -89,11 +89,20 @@ def list_archive(client: Any, *, refresh: bool = False) -> dict[str, Any]:
     return {"satellites": [_shape_archive_record(r) for r in archive]}
 
 
-def resolve_location(name: str, *, country_bias: str | None = "in") -> dict[str, Any]:
+def resolve_location(name: str) -> dict[str, Any]:
     """Resolve a place name to a centroid and bounding box."""
-    place = _resolve_place(name, country_bias=country_bias)
+    place = _resolve_place(name)
     if place is None:
-        return {"found": False, "query": name}
+        return {
+            "found": False,
+            "query": name,
+            "reason": (
+                "Not a recognisable place name. Give a place (city, district, "
+                "lake, park); bare numbers or coordinates are not resolved — "
+                "if you already have coordinates, pass them to search_scenes as "
+                "a bounding box or point."
+            ),
+        }
     minx, miny, maxx, maxy = place.bbox
     return {
         "found": True,
@@ -155,6 +164,81 @@ def search_scenes(
     return result
 
 
+def _validate_args(
+    satellite: str,
+    minx: float | None,
+    maxx: float | None,
+    miny: float | None,
+    maxy: float | None,
+    lat: float | None,
+    lon: float | None,
+    radius_km: float | None,
+) -> dict[str, Any] | None:
+    """Validate satellite and area-of-interest arguments before any search.
+
+    Returns an ``invalid_request`` error dict describing the first problem, or
+    None when the arguments are usable. Catches the malformed inputs that would
+    otherwise reach the portal and come back as an indistinguishable empty
+    result: no satellite, no/both AOI forms, an out-of-range radius, or a
+    bounding box with min beyond max.
+    """
+    if not satellite or not satellite.strip():
+        return {
+            "status": "invalid_request",
+            "error": "satellite is required (e.g. 'Sentinel-2', 'cartosat').",
+        }
+
+    has_bbox = any(v is not None for v in (minx, maxx, miny, maxy))
+    has_point = any(v is not None for v in (lat, lon, radius_km))
+
+    if not has_bbox and not has_point:
+        return {
+            "status": "invalid_request",
+            "error": (
+                "No area of interest. Give either a bounding box "
+                "(minx, maxx, miny, maxy) or a point (lat, lon, optional "
+                "radius_km) — typically from resolve_location."
+            ),
+        }
+    if has_bbox and has_point:
+        return {
+            "status": "invalid_request",
+            "error": (
+                "Give only one area of interest: a bounding box OR a point, "
+                "not both."
+            ),
+        }
+
+    if has_bbox:
+        if minx is None or maxx is None or miny is None or maxy is None:
+            return {
+                "status": "invalid_request",
+                "error": "A bounding box needs all four of minx, maxx, miny, maxy.",
+            }
+        if minx >= maxx or miny >= maxy:
+            return {
+                "status": "invalid_request",
+                "error": (
+                    f"Bounding box is inverted or empty: need minx<maxx and "
+                    f"miny<maxy, got minx={minx}, maxx={maxx}, miny={miny}, "
+                    f"maxy={maxy}."
+                ),
+            }
+    else:
+        if lat is None or lon is None:
+            return {
+                "status": "invalid_request",
+                "error": "A point needs both lat and lon (radius_km is optional).",
+            }
+        if radius_km is not None and not (1 <= radius_km <= 100):
+            return {
+                "status": "invalid_request",
+                "error": f"radius_km must be between 1 and 100, got {radius_km}.",
+            }
+
+    return None
+
+
 def _run_search(
     client: Any,
     satellite: str,
@@ -177,6 +261,12 @@ def _run_search(
     ``error`` is None. Shared by ``search_scenes`` and ``preview_download`` so
     both classify the same scenes with identical resolution and error handling.
     """
+    aoi_error = _validate_args(
+        satellite, minx, maxx, miny, maxy, lat, lon, radius_km
+    )
+    if aoi_error is not None:
+        return (aoi_error, [], [])
+
     vocab = _get_vocab(client)
     resolution = resolve_satellite(satellite, vocab, threshold=FUZZY_THRESHOLD)
     if not resolution.is_confident:
@@ -199,7 +289,26 @@ def _run_search(
         start = datetime.fromisoformat(start_date)
         end = datetime.fromisoformat(end_date)
     except ValueError as exc:
-        return ({"status": "error", "error": f"Invalid date (use YYYY-MM-DD): {exc}"}, [], [])
+        return (
+            {
+                "status": "invalid_request",
+                "error": f"Invalid date — use YYYY-MM-DD. ({exc})",
+            },
+            [],
+            [],
+        )
+    if end < start:
+        return (
+            {
+                "status": "invalid_request",
+                "error": (
+                    f"end_date ({end_date}) is before start_date ({start_date}). "
+                    "Give the range in chronological order."
+                ),
+            },
+            [],
+            [],
+        )
 
     try:
         with sdk_console_to_stderr():

@@ -8,11 +8,18 @@ The result exposes both AOI shapes ``search_scenes`` can pass to the downloader:
 a bounding box for an area, or a point for "within N km of here". Coordinates
 are authoritative; the returned name is advisory, since Nominatim may answer in
 the local script (e.g. Bengali for a place in West Bengal).
+
+Nominatim ranks matches by an importance score, which prefers well-known places
+(so "Tokyo" resolves to Tokyo and "Hyderabad" to the larger Indian one). Inputs
+that are not place names — empty strings, bare numbers, or raw coordinates — are
+rejected rather than fuzzy-matched to an unrelated place: if the caller already
+has coordinates they should pass them to the search AOI directly.
 """
 
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -25,6 +32,12 @@ _DEFAULT_USER_AGENT = os.environ.get(
     "BHOONIDHI_MCP_GEOCODER_USER_AGENT", "bhoonidhi-mcp/0.1"
 )
 _MIN_DELAY_SECONDS = 1.1
+
+# A place name must contain at least one letter. Bare numbers ("12345") and
+# coordinate-like strings ("25.5, 91.9") are not names — geocoding them returns
+# an unrelated place, so they are rejected before the network call.
+_HAS_LETTER = re.compile(r"[^\W\d_]", re.UNICODE)
+_COORD_LIKE = re.compile(r"^\s*[-+]?\d+(\.\d+)?\s*[,;/ ]\s*[-+]?\d+(\.\d+)?\s*$")
 
 
 @dataclass
@@ -53,28 +66,32 @@ def _build_geocoder(user_agent: str) -> _Geocoder:
     return RateLimiter(nominatim.geocode, min_delay_seconds=_MIN_DELAY_SECONDS)
 
 
+def is_place_name(name: str) -> bool:
+    """True if ``name`` is worth geocoding — has letters and isn't coordinates."""
+    if not name or not name.strip():
+        return False
+    if _COORD_LIKE.match(name):
+        return False
+    return bool(_HAS_LETTER.search(name))
+
+
 def resolve_location(
     name: str,
     *,
-    country_bias: str | None = "in",
     geocoder: _Geocoder | None = None,
 ) -> Place | None:
     """Resolve a place name to a :class:`Place`, or ``None`` if nothing matches.
 
-    ``country_bias`` softly prefers results in one ISO country code (default
-    India, the portal's focus) without excluding others — pass ``None`` to drop
-    the preference entirely. ``geocoder`` is injectable so tests run without
-    hitting the network; production builds one over Nominatim.
+    Returns ``None`` for inputs that are not place names (empty, bare numbers,
+    raw coordinates) without a network call. Otherwise queries Nominatim, whose
+    importance ranking prefers well-known places. ``geocoder`` is injectable so
+    tests run without hitting the network; production builds one over Nominatim.
     """
+    if not is_place_name(name):
+        return None
+
     geocode = geocoder or _build_geocoder(_DEFAULT_USER_AGENT)
-
-    kwargs: dict[str, object] = {"addressdetails": False}
-    if country_bias:
-        # A bias, not a filter: Nominatim ranks these first but still returns
-        # matches elsewhere when nothing in-country fits.
-        kwargs["country_codes"] = country_bias
-
-    location = geocode(name, **kwargs)
+    location = geocode(name, addressdetails=False)
     if location is None:
         return None
 

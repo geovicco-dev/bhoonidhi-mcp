@@ -43,13 +43,24 @@ def test_no_match_returns_none():
     assert resolve_location("asdfqwerzzz", geocoder=_stub(None)) is None
 
 
-def test_country_bias_passed_by_default():
+def test_no_country_filter_is_sent():
+    # A hard country filter mis-resolved foreign places to tiny Indian ones;
+    # the geocoder now relies on Nominatim's importance ranking instead.
     stub = _stub(_SHILLONG)
     resolve_location("Shillong", geocoder=stub)
-    assert stub.calls["kwargs"].get("country_codes") == "in"
-
-
-def test_country_bias_can_be_disabled():
-    stub = _stub(_SHILLONG)
-    resolve_location("Springfield", country_bias=None, geocoder=stub)
     assert "country_codes" not in stub.calls["kwargs"]
+
+
+def test_non_place_inputs_are_rejected_without_a_call():
+    # Empty, whitespace, bare numbers, and coordinates are not place names —
+    # they must return None without ever hitting the geocoder.
+    for bad in ["", "   ", "12345", "25.5, 91.9", "-12.3;45.6"]:
+        stub = _stub(_SHILLONG)
+        assert resolve_location(bad, geocoder=stub) is None
+        assert "query" not in stub.calls  # geocoder never invoked
+
+
+def test_real_place_names_still_reach_the_geocoder():
+    stub = _stub(_SHILLONG)
+    assert resolve_location("Shillong", geocoder=stub) is not None
+    assert stub.calls["query"] == "Shillong"

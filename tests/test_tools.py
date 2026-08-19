@@ -176,8 +176,54 @@ def test_bad_date_is_reported_cleanly():
     out = search_scenes(
         _FakeClient(), "Sentinel-2", "01-2024", "2024-01-15", minx=0, maxx=1, miny=0, maxy=1
     )
-    assert out["status"] == "error"
+    assert out["status"] == "invalid_request"
     assert "date" in out["error"].lower()
+
+
+def test_invalid_requests_are_distinct_and_actionable():
+    """Malformed inputs must not collapse into one vague empty result."""
+    s, e = "2024-01-01", "2024-01-15"
+
+    # Empty satellite.
+    r = search_scenes(_FakeClient(), "", s, e, minx=0, maxx=1, miny=0, maxy=1)
+    assert r["status"] == "invalid_request" and "satellite" in r["error"].lower()
+
+    # No area of interest at all.
+    r = search_scenes(_FakeClient(), "Sentinel-2", s, e)
+    assert r["status"] == "invalid_request" and "area" in r["error"].lower()
+
+    # Both a bbox and a point.
+    r = search_scenes(
+        _FakeClient(), "Sentinel-2", s, e,
+        minx=0, maxx=1, miny=0, maxy=1, lat=12.0, lon=77.0,
+    )
+    assert r["status"] == "invalid_request" and "only one" in r["error"].lower()
+
+    # Inverted bounding box.
+    r = search_scenes(_FakeClient(), "Sentinel-2", s, e, minx=2, maxx=1, miny=2, maxy=1)
+    assert r["status"] == "invalid_request" and "invert" in r["error"].lower()
+
+    # Radius out of the documented 1-100 range.
+    for bad_radius in (0.1, 200):
+        r = search_scenes(
+            _FakeClient(), "Sentinel-2", s, e, lat=12.0, lon=77.0, radius_km=bad_radius
+        )
+        assert r["status"] == "invalid_request" and "radius" in r["error"].lower()
+
+    # Reversed date range.
+    r = search_scenes(
+        _FakeClient(), "Sentinel-2", "2024-01-31", "2024-01-01",
+        minx=0, maxx=1, miny=0, maxy=1,
+    )
+    assert r["status"] == "invalid_request" and "before" in r["error"].lower()
+
+
+def test_valid_request_is_not_flagged_as_invalid():
+    out = search_scenes(
+        _FakeClient(scenes=[_SCENE]), "Sentinel-2", "2024-01-01", "2024-01-15",
+        minx=91.7, maxx=92.0, miny=25.4, maxy=25.7,
+    )
+    assert out["status"] == "ok"
 
 
 def test_portal_rejecting_all_selections_is_a_clean_empty_result():
