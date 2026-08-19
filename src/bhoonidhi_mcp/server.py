@@ -53,6 +53,7 @@ def search_scenes(
     lon: float | None = None,
     radius_km: float | None = None,
     sensor: str | None = None,
+    product: str | None = None,
 ) -> dict:
     """Search Bhoonidhi scenes for a satellite over an area and date range.
 
@@ -60,7 +61,11 @@ def search_scenes(
     to the portal's exact tokens, and a constellation expands to all its
     platforms. Dates are ISO (YYYY-MM-DD). Give the area either as a bounding box
     (minx/maxx/miny/maxy) or a point with radius (lat/lon/radius_km) — typically
-    from resolve_location. The search is stateless and needs no login.
+    from resolve_location. sensor narrows to one sensor on the matched
+    satellite(s) (e.g. "SSAR", "LISS3"); product further narrows to one product
+    under that sensor (e.g. "GCOV", "L2C-Chlorophyll") — see list_archive for the
+    exact sensor/product names each satellite carries. The search is stateless
+    and needs no login.
 
     If the satellite name is ambiguous, returns status="ambiguous_satellite"
     with candidate names instead of guessing.
@@ -88,6 +93,7 @@ def search_scenes(
         lon=lon,
         radius_km=radius_km,
         sensor=sensor,
+        product=product,
     )
 
 
@@ -105,6 +111,7 @@ def preview_download(
     lon: float | None = None,
     radius_km: float | None = None,
     sensor: str | None = None,
+    product: str | None = None,
     force: bool = False,
 ) -> dict:
     """Dry-run a download for a search: show what would be fetched, no login.
@@ -136,6 +143,7 @@ def preview_download(
         lon=lon,
         radius_km=radius_km,
         sensor=sensor,
+        product=product,
         force=force,
     )
 

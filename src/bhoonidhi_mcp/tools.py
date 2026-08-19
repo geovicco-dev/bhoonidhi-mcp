@@ -127,6 +127,7 @@ def search_scenes(
     lon: float | None = None,
     radius_km: float | None = None,
     sensor: str | None = None,
+    product: str | None = None,
     max_results: int = MAX_RESULTS,
 ) -> dict[str, Any]:
     """Search scenes for a satellite over an area and date range (stateless).
@@ -139,7 +140,7 @@ def search_scenes(
     error, scenes, selections = _run_search(
         client, satellite, start_date, end_date,
         minx=minx, maxx=maxx, miny=miny, maxy=maxy,
-        lat=lat, lon=lon, radius_km=radius_km, sensor=sensor,
+        lat=lat, lon=lon, radius_km=radius_km, sensor=sensor, product=product,
     )
     if error is not None:
         return error
@@ -253,6 +254,7 @@ def _run_search(
     lon: float | None = None,
     radius_km: float | None = None,
     sensor: str | None = None,
+    product: str | None = None,
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], list[Any]]:
     """Resolve the satellite and run a stateless search.
 
@@ -284,6 +286,9 @@ def _run_search(
     if sensor:
         for selection in selections:
             selection.sensor = sensor
+    if product:
+        for selection in selections:
+            selection.product = product
 
     try:
         start = datetime.fromisoformat(start_date)
@@ -395,6 +400,8 @@ def _bhd_create_command(
         token = sel.satellite
         if getattr(sel, "sensor", None):
             token = f"{sel.satellite}:{sel.sensor}"
+            if getattr(sel, "product", None):
+                token += f":{sel.product}"
         sats.append(f'--sat "{token}"')
     if minx is not None:
         aoi = f"--minx {minx} --maxx {maxx} --miny {miny} --maxy {maxy}"
@@ -490,6 +497,7 @@ def preview_download(
     lon: float | None = None,
     radius_km: float | None = None,
     sensor: str | None = None,
+    product: str | None = None,
     force: bool = False,
 ) -> dict[str, Any]:
     """Dry-run a download: classify what downloading these scenes would do.
@@ -503,7 +511,7 @@ def preview_download(
     error, scenes, selections = _run_search(
         client, satellite, start_date, end_date,
         minx=minx, maxx=maxx, miny=miny, maxy=maxy,
-        lat=lat, lon=lon, radius_km=radius_km, sensor=sensor,
+        lat=lat, lon=lon, radius_km=radius_km, sensor=sensor, product=product,
     )
     if error is not None:
         return error
