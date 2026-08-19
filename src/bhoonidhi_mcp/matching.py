@@ -52,6 +52,7 @@ class Vocabulary:
     families: dict[str, list[str]]  # family key -> platforms, e.g. Sentinel-2 -> [2A,2B,2C]
     brands: dict[str, list[str]]  # brand -> platforms, e.g. ResourceSat -> [1,2,2A]
     sensors: dict[str, list[str]]  # sensor name -> satellites carrying it
+    sensor_stems: dict[str, list[str]]  # sensor stem -> variants, e.g. LISS -> [LISS1,..]
 
     @classmethod
     def from_archive(cls, archive: list[dict[str, Any]]) -> Vocabulary:
@@ -73,7 +74,11 @@ class Vocabulary:
                 if name and sat not in sensors.setdefault(name, []):
                     sensors[name].append(sat)
 
-        return cls(satellites, families, brands, sensors)
+        sensor_stems: dict[str, list[str]] = {}
+        for sensor_name in sensors:
+            sensor_stems.setdefault(_sensor_stem(sensor_name), []).append(sensor_name)
+
+        return cls(satellites, families, brands, sensors, sensor_stems)
 
 
 @dataclass
@@ -104,6 +109,11 @@ def _family_key(sat: str) -> str:
 def _brand_key(sat: str) -> str:
     """Group a whole satellite line: ResourceSat-1/2/2A -> ResourceSat."""
     return _BRAND_TAIL.sub("", sat)
+
+
+def _sensor_stem(sensor: str) -> str:
+    """Group numbered sensor siblings: LISS1/LISS3/LISS4(MX23) -> LISS."""
+    return _BRAND_TAIL.sub("", sensor)
 
 
 def _normalize(text: str) -> str:
@@ -161,12 +171,21 @@ def resolve_satellite(
 
     def try_sensor() -> Resolution | None:
         sensor = _best(name, list(vocab.sensors))
-        if sensor and sensor[1] >= threshold:
-            res = _confident(name, vocab.sensors[sensor[0]], sensor)
-            for sel in res.selections:  # narrow each selection to the named sensor
-                sel.sensor = sensor[0]
-            return res
-        return None
+        if not (sensor and sensor[1] >= threshold):
+            return None
+        # A no-digit query naming a sensor with numbered siblings (LISS ->
+        # LISS1/2/3/4) is ambiguous: the user didn't say which variant, so
+        # offer them rather than guessing one. A digit-bearing query
+        # ("LISS3") skips this and resolves to the specific variant.
+        if not numbered:
+            stem = _sensor_stem(sensor[0])
+            variants = vocab.sensor_stems.get(stem, [])
+            if len(variants) > 1:
+                return Resolution(query=name, candidates=sorted(variants))
+        res = _confident(name, vocab.sensors[sensor[0]], sensor)
+        for sel in res.selections:  # narrow each selection to the named sensor
+            sel.sensor = sensor[0]
+        return res
 
     order = (
         (try_family, try_single, try_brand, try_sensor)

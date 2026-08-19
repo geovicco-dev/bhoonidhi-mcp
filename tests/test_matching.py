@@ -56,6 +56,25 @@ def test_sensor_name_resolves_to_carriers(vocab):
     assert all(s.sensor == "MODIS" for s in res.selections)
 
 
+# Lesson 2c: a bare sensor family with numbered siblings is ambiguous, not a
+# guess. "LISS" must not silently pick LISS1 — it offers the variants instead.
+def test_bare_sensor_family_returns_variant_candidates(vocab):
+    res = resolve_satellite("LISS", vocab)
+    assert not res.is_confident
+    assert not res.selections
+    assert res.candidates == sorted(res.candidates)
+    assert "LISS3" in res.candidates
+    assert all(c.startswith("LISS") for c in res.candidates)
+
+
+# A specific numbered sensor variant still resolves confidently.
+def test_numbered_sensor_variant_resolves(vocab):
+    res = resolve_satellite("LISS3", vocab)
+    assert res.is_confident
+    assert all(s.sensor == "LISS3" for s in res.selections)
+    assert "ResourceSat-2" in _sats(res)
+
+
 # Lesson 3: glued numeric aliases still resolve after boundary normalization.
 @pytest.mark.parametrize("query", ["eos6", "eos-6", "eos 6", "EOS-06"])
 def test_glued_numeric_alias_resolves(vocab, query):

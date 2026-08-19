@@ -129,3 +129,23 @@ def test_bad_date_is_reported_cleanly():
     )
     assert out["status"] == "error"
     assert "date" in out["error"].lower()
+
+
+def test_portal_rejecting_all_selections_is_a_clean_empty_result():
+    """A valid satellite with no data in range must not surface as a raw error."""
+    from bhoonidhi_downloader.exceptions import BhoonidhiValidationError
+
+    class _RejectingQuery:
+        def create(self, *args, **kwargs):
+            raise BhoonidhiValidationError("No valid selections to search")
+
+    client = _FakeClient()
+    client.query = _RejectingQuery()
+    out = search_scenes(
+        client, "Sentinel-2", "2024-01-01", "2024-01-15", minx=0, maxx=1, miny=0, maxy=1
+    )
+    assert out["status"] == "no_searchable_scenes"
+    assert out["total"] == 0
+    assert out["scenes"] == []
+    assert out["matched_satellites"]  # tells the agent what was tried
+    assert out["reason"]

@@ -17,7 +17,7 @@ import os
 from datetime import datetime
 from typing import Any
 
-from bhoonidhi_downloader.exceptions import BhoonidhiError
+from bhoonidhi_downloader.exceptions import BhoonidhiError, BhoonidhiValidationError
 from bhoonidhi_downloader.sdk import scene_availability
 
 from .geocode import resolve_location as _resolve_place
@@ -161,6 +161,17 @@ def search_scenes(
                 radius_km=radius_km,
                 save=False,
             )
+    except BhoonidhiValidationError as exc:
+        # The satellite resolved, but the portal rejected every selection —
+        # typically the mission carries no data in this date range or area.
+        # Report it as an empty, actionable result rather than a raw error.
+        return {
+            "status": "no_searchable_scenes",
+            "matched_satellites": [s.satellite for s in selections],
+            "reason": str(exc),
+            "total": 0,
+            "scenes": [],
+        }
     except BhoonidhiError as exc:
         return {"status": "error", "error": str(exc)}
 
