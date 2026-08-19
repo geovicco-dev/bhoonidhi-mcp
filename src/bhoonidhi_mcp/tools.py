@@ -177,16 +177,23 @@ def search_scenes(
 
     scenes = query.scenes if query else []
     shaped = [_shape_scene(s) for s in scenes[:max_results]]
-    return {
+    counts = _availability_summary(scenes)
+    result: dict[str, Any] = {
         "status": "ok",
         "matched_satellites": [s.satellite for s in selections],
         "total": len(scenes),
         "returned": len(shaped),
-        # Counts over ALL matched scenes (not just the returned page), so the
-        # agent can answer "how many can I actually download?" honestly.
-        "availability_summary": _availability_summary(scenes),
+        "availability_summary": counts,
+        "summary": _plain_summary(counts),
         "scenes": shaped,
     }
+    if scenes:
+        create_cmd = _bhd_create_command(
+            start_date, end_date, selections,
+            minx, maxx, miny, maxy, lat, lon, radius_km,
+        )
+        result["how_to_act"] = _how_to_act(counts, create_cmd)
+    return result
 
 
 def _availability_summary(scenes: list[dict[str, Any]]) -> dict[str, int]:
@@ -196,3 +203,97 @@ def _availability_summary(scenes: list[dict[str, Any]]) -> dict[str, int]:
         label = scene_availability(scene).label
         summary[label] = summary.get(label, 0) + 1
     return summary
+
+
+# Plain-English gloss for each availability state, so the agent can tell the
+# user what a count means instead of leaving them to decode a label.
+_STATE_PHRASE = {
+    "Ready": "{n} ready to download now",
+    "Archived": "{n} archived (open data, but may need a request on the portal first)",
+    "OnOrder": "{n} on-order (must be requested on the portal before download)",
+    "Priced": "{n} priced (requires purchase on the portal)",
+}
+_STATE_ORDER = ("Ready", "Archived", "OnOrder", "Priced")
+
+
+def _plain_summary(counts: dict[str, int]) -> str:
+    """One-sentence, plain-language read of the availability counts."""
+    parts = [_STATE_PHRASE[k].format(n=counts[k]) for k in _STATE_ORDER if counts.get(k)]
+    return "; ".join(parts) + "." if parts else "No scenes matched."
+
+
+def _bhd_create_command(
+    start: str,
+    end: str,
+    selections: list[Any],
+    minx: float | None,
+    maxx: float | None,
+    miny: float | None,
+    maxy: float | None,
+    lat: float | None,
+    lon: float | None,
+    radius_km: float | None,
+) -> str:
+    """Reconstruct the `bhd query create` that reproduces this search and saves it.
+
+    The MCP search is stateless (no slug), but acting via the CLI needs one, so
+    the user re-runs this saving form first. Flags mirror the verified CLI.
+    """
+    sats = []
+    for sel in selections:
+        token = sel.satellite
+        if getattr(sel, "sensor", None):
+            token = f"{sel.satellite}:{sel.sensor}"
+        sats.append(f'--sat "{token}"')
+    if minx is not None:
+        aoi = f"--minx {minx} --maxx {maxx} --miny {miny} --maxy {maxy}"
+    else:
+        aoi = f"--lat {lat} --lon {lon} --radius {radius_km}"
+    return f"bhd query create {start} {end} " + " ".join(sats) + " " + aoi
+
+
+def _how_to_act(counts: dict[str, int], create_cmd: str) -> dict[str, Any]:
+    """What the user can do with these scenes today, and what's coming.
+
+    This server is read-only for now, so acting (download, cart) is done with
+    the bhd CLI. Each step is spelled out with the exact command; downloading
+    and cart staging are planned MCP features noted here so the agent can say so.
+    """
+    then: list[dict[str, str]] = []
+    if counts.get("Ready") or counts.get("Archived"):
+        then.append(
+            {
+                "for": "Ready / Archived (open data)",
+                "do": "download them yourself",
+                "command": "bhd query download <slug> --out ./downloads",
+                "note": (
+                    "Interrupted downloads restart from scratch — the portal has "
+                    "no HTTP range support, so partial files cannot be resumed."
+                ),
+            }
+        )
+    if counts.get("OnOrder"):
+        then.append(
+            {
+                "for": "OnOrder",
+                "do": "request them on the portal, then download once ready",
+                "command": "bhd cart add <slug> --filter onorder",
+            }
+        )
+    if counts.get("Priced"):
+        then.append(
+            {
+                "for": "Priced",
+                "do": "stage to cart, then purchase on the Bhoonidhi portal",
+                "command": "bhd cart add <slug> --filter priced",
+            }
+        )
+    return {
+        "mcp_status": (
+            "This server is read-only for now; downloading scenes and staging "
+            "priced/on-order scenes to your cart are planned for a future update. "
+            "Until then, act with the bhd CLI — log in first with 'bhd auth login'."
+        ),
+        "reproduce_search": create_cmd + "   # saves the search and prints a <slug>",
+        "then": then,
+    }

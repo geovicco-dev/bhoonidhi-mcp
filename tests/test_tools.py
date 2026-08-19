@@ -113,6 +113,53 @@ def test_availability_reflects_staging_not_just_pricing():
     assert labels == ["Ready", "Archived", "Priced"]
     # Both open-data states are downloadable; priced is not.
     assert [s["downloadable"] for s in out["scenes"]] == [True, True, False]
+    # Plain-English summary names every non-zero state for the user.
+    assert "1 ready to download now" in out["summary"]
+    assert "archived" in out["summary"] and "priced" in out["summary"].lower()
+
+
+def test_result_guides_the_user_on_how_to_act():
+    """Read-only server must tell the user what's coming and the exact bhd command."""
+    ready = _scene("OpenData_DirectDownload", "Y")
+    priced = _scene("Priced")
+    out = search_scenes(
+        _FakeClient(scenes=[ready, priced]),
+        "Sentinel-2",
+        "2024-01-01",
+        "2024-01-31",
+        minx=91.7,
+        maxx=92.0,
+        miny=25.4,
+        maxy=25.7,
+    )
+    act = out["how_to_act"]
+    # The agent is told the boundary and the roadmap.
+    assert "read-only" in act["mcp_status"] and "future update" in act["mcp_status"]
+    # A correct, reproducible saving command with the real bbox + a slug note.
+    cmd = act["reproduce_search"]
+    assert cmd.startswith("bhd query create 2024-01-01 2024-01-31")
+    assert "--minx 91.7" in cmd and "<slug>" in cmd
+    # Priced scenes route to cart; open data routes to download with no-resume note.
+    fors = {step["for"]: step for step in act["then"]}
+    assert any("Priced" in k for k in fors)
+    dl = next(s for s in act["then"] if "open data" in s["for"].lower())
+    assert "cannot be resumed" in dl["note"]
+
+
+def test_no_how_to_act_when_no_scenes():
+    out = search_scenes(
+        _FakeClient(scenes=[]),
+        "Sentinel-2",
+        "2024-01-01",
+        "2024-01-15",
+        minx=0,
+        maxx=1,
+        miny=0,
+        maxy=1,
+    )
+    assert out["total"] == 0
+    assert "how_to_act" not in out
+    assert out["summary"] == "No scenes matched."
 
 
 def test_ambiguous_satellite_returns_candidates_not_search():

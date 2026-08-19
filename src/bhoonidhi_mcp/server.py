@@ -64,6 +64,16 @@ def search_scenes(
 
     If the satellite name is ambiguous, returns status="ambiguous_satellite"
     with candidate names instead of guessing.
+
+    Each scene carries an "availability": Ready (downloadable now), Archived
+    (open data but may need a portal request first), OnOrder (must be requested),
+    or Priced (must be purchased). The result includes a plain-English "summary"
+    of these counts and a "how_to_act" block. Tell the user clearly when scenes
+    are Archived, OnOrder, or Priced and what each needs. This server is
+    read-only for now: it cannot download scenes or add them to a cart —
+    those are planned for a future update. Until then, "how_to_act" gives the
+    exact bhd CLI commands the user runs themselves (after 'bhd auth login').
+    Downloads cannot be resumed if interrupted (the portal has no range support).
     """
     return tools.search_scenes(
         _client,
