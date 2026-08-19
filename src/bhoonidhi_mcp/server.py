@@ -319,32 +319,48 @@ def cart_add(slug: str, select: list | None = None) -> dict:
 
 
 @server.tool()
-def cart_list(filter_by: str | None = None, last: str | None = None) -> dict:
+def cart_list(
+    filter_by: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    last: str | None = None,
+) -> dict:
     """List scenes currently staged in the Bhoonidhi cart.
 
-    Cart items are filed by the date they were added; with no window this shows
-    today only, so pass last (e.g. "1 week") to widen it. filter_by limits to a
-    state: ready, archived, onorder, or priced. Needs a login (see auth_status).
+    Cart items are filed by the date they were added; with no window this
+    shows today only, so pass since/until (ISO dates, e.g. "2026-08-10") or
+    last (e.g. "1 week") to widen it. filter_by limits to a state: ready,
+    archived, onorder, or priced. Needs a login (see auth_status).
     """
-    return tools.cart_list(_client, filter_by=filter_by, last=last)
+    return tools.cart_list(
+        _client, filter_by=filter_by, since=since, until=until, last=last
+    )
 
 
 @server.tool()
 def cart_remove(
     slug: str | None = None,
     select: list | None = None,
+    since: str | None = None,
+    until: str | None = None,
     last: str | None = None,
     filter_by: str | None = None,
 ) -> dict:
     """Remove scenes from the Bhoonidhi cart.
 
-    Two ways to address rows: pass slug to index a saved query's scenes, or omit
-    it and let select index the merged cart itself (the same row numbers
-    cart_list shows under the same last/filter_by window). Needs a login (see
-    auth_status).
+    Two ways to address rows: pass slug to index a saved query's scenes, or
+    omit it and let select index the merged cart itself (the same row numbers
+    cart_list shows under the same since/until/last/filter_by window). Needs
+    a login (see auth_status).
     """
     return tools.cart_remove(
-        _client, slug=slug, select=select, last=last, filter_by=filter_by
+        _client,
+        slug=slug,
+        select=select,
+        since=since,
+        until=until,
+        last=last,
+        filter_by=filter_by,
     )
 
 
