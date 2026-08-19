@@ -65,6 +65,12 @@ header{position:sticky;top:0;z-index:600;backdrop-filter:blur(10px);background:r
 .badges{margin-top:28px;display:flex;flex-wrap:wrap;gap:8px}
 .badge{font-family:var(--mono);font-size:12px;color:var(--ink-dim);border:1px solid var(--line);border-radius:999px;padding:5px 12px}
 .badge b{color:var(--phos);font-weight:600}.badge.amber b{color:var(--sig-soft)}
+.hero-flag{margin-top:22px;display:inline-flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12.5px;font-weight:600;letter-spacing:.04em;color:var(--sig-soft);background:var(--sig-glow);border:1px solid rgba(255,125,60,.35);border-radius:999px;padding:8px 16px}
+.hero-flag .fdot{width:7px;height:7px;border-radius:50%;background:var(--sig);box-shadow:0 0 0 4px var(--sig-glow)}
+.hero-why{margin-top:26px;border:1px solid var(--line-2);border-left:2px solid var(--phos);border-radius:11px;padding:15px 17px;background:linear-gradient(180deg,rgba(79,214,196,.03),transparent)}
+.hero-why .why-k{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--phos);margin-bottom:8px}
+.hero-why p{font-size:13.5px;color:var(--ink-dim);line-height:1.6;max-width:52ch}
+.hero-why b{color:var(--ink)}
 
 .readout{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line-2);border-radius:16px;overflow:hidden;box-shadow:0 30px 80px -40px #000}
 .readout .bar{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--ink-mute)}
@@ -279,15 +285,19 @@ footer{border-top:1px solid var(--line);padding:32px 0;position:relative;z-index
     <div>
       <span class="eyebrow">Model Context Protocol server</span>
       <h1 class="h1">Search ISRO's satellite archive in <span class="em">plain language</span>.</h1>
-      <p class="lead">Under the Indian Space Policy 2023, much of ISRO's satellite archive is open to everyone. bhoonidhi-mcp lets an AI agent reach it in plain language — search and preview freely, and download to your own Bhoonidhi account. Free and open-source, built for the community.</p>
+      <div class="hero-flag"><span class="fdot"></span>Free &amp; open source — made for the community</div>
+      <p class="lead">An MCP server that lets an AI agent search ISRO's Bhoonidhi archive in plain language, then download the results to your own account.</p>
       <div class="hero-cta">
         <div class="cmd"><span class="p">$</span><code>git clone https://github.com/geovicco-dev/bhoonidhi-mcp</code><button class="copy" data-copy="git clone https://github.com/geovicco-dev/bhoonidhi-mcp">Copy</button></div>
         <a class="btn-primary" href="#run">Watch it run <span aria-hidden="true">→</span></a>
       </div>
+      <div class="hero-why">
+        <div class="why-k">Why it exists</div>
+        <p>The Indian Space Policy 2023 opened much of ISRO's Earth-observation archive to everyone. But the Bhoonidhi portal has <b>no official SDK</b>, so using the data means clicking through a web form one scene at a time. This gives an agent a way to do it in a sentence.</p>
+      </div>
       <div class="badges">
-        <span class="badge amber"><b>Free &amp; open source</b></span>
-        <span class="badge">The data is open</span>
         <span class="badge"><b>41</b> missions · <b>79</b> sensors</span>
+        <span class="badge"><b>15</b> tools</span>
         <span class="badge">MIT licensed</span>
       </div>
     </div>
