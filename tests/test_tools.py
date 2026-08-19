@@ -137,14 +137,16 @@ def test_result_guides_the_user_on_how_to_act():
         maxy=25.7,
     )
     act = out["how_to_act"]
-    # The agent is told to persist first, and where in-server actions are headed.
-    assert "save_query" in act["mcp_status"] and "future update" in act["mcp_status"]
+    # The agent is told to persist first, then act with the in-server tools.
+    assert "save_query" in act["mcp_status"]
+    assert "download_query" in act["mcp_status"] and "cart_add" in act["mcp_status"]
+    assert "auth_status" in act["mcp_status"]
     assert "save_query" in act["save_first"] and "<slug>" in act["save_first"]
-    # Priced scenes route to cart; open data routes to download with no-resume note.
+    # Priced scenes route to cart_add; open data routes to download with no-resume note.
     fors = {step["for"]: step for step in act["then"]}
     assert any("Priced" in k for k in fors)
     dl = next(s for s in act["then"] if "open data" in s["for"].lower())
-    assert "cannot be resumed" in dl["note"]
+    assert "download_query" in dl["do"] and "cannot be resumed" in dl["note"]
 
 
 def test_no_how_to_act_when_no_scenes():

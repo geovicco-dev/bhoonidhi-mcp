@@ -15,9 +15,12 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from bhoonidhi_downloader.exceptions import (
+    BhoonidhiAPIError,
+    BhoonidhiAuthError,
     BhoonidhiError,
     BhoonidhiNotFoundError,
     BhoonidhiValidationError,
@@ -25,12 +28,23 @@ from bhoonidhi_downloader.exceptions import (
 from bhoonidhi_downloader.sdk import preview_download as _sdk_preview
 from bhoonidhi_downloader.sdk import scene_availability
 
+from . import jobs
 from .geocode import resolve_location as _resolve_place
 from .matching import Vocabulary, resolve_satellite
 from .protocol_safety import sdk_console_to_stderr
 
 FUZZY_THRESHOLD = int(os.environ.get("BHOONIDHI_MCP_FUZZY_THRESHOLD", "88"))
 MAX_RESULTS = int(os.environ.get("BHOONIDHI_MCP_MAX_RESULTS", "50"))
+DOWNLOAD_PARALLEL = int(os.environ.get("BHOONIDHI_MCP_DOWNLOAD_PARALLEL", "4"))
+# Downloads are confined to this root; a slug never escapes it. Read lazily so
+# tests and a reconfigured environment see the current value.
+_DEFAULT_DOWNLOAD_ROOT = "~/Downloads"
+
+
+def _download_root() -> Path:
+    """The allow-listed root every download is written under, as an absolute path."""
+    raw = os.environ.get("BHOONIDHI_MCP_DOWNLOAD_ROOT", _DEFAULT_DOWNLOAD_ROOT)
+    return Path(raw).expanduser().resolve()
 
 _vocab_cache: Vocabulary | None = None
 
@@ -387,22 +401,22 @@ def _plain_summary(counts: dict[str, int]) -> str:
 
 
 def _how_to_act(counts: dict[str, int]) -> dict[str, Any]:
-    """What the user can do with these scenes today, and what's coming.
+    """What the user can do with these scenes, and which tool does it.
 
-    The server can now persist a search (``save_query`` returns a slug), so the
-    agent no longer has to tell the user to reproduce the search by hand. Acting
-    on that slug — downloading, cart staging — is still done with the bhd CLI
-    until those land in-server; each step is spelled out with the exact command.
+    The server can now persist a search (``save_query`` returns a slug) and act
+    on that slug in-server: ``download_query`` for open data, ``cart_add`` for
+    on-order/priced scenes. This block routes each availability state to the
+    right next tool.
     """
     then: list[dict[str, str]] = []
     if counts.get("Ready") or counts.get("Archived"):
         then.append(
             {
                 "for": "Ready / Archived (open data)",
-                "do": "download them yourself",
-                "command": "bhd query download <slug> --out ./downloads",
+                "do": "save_query, then download_query on the slug",
                 "note": (
-                    "Interrupted downloads restart from scratch — the portal has "
+                    "Downloads run in the background — poll download_status. "
+                    "Interrupted downloads restart from scratch; the portal has "
                     "no HTTP range support, so partial files cannot be resumed."
                 ),
             }
@@ -411,28 +425,25 @@ def _how_to_act(counts: dict[str, int]) -> dict[str, Any]:
         then.append(
             {
                 "for": "OnOrder",
-                "do": "request them on the portal, then download once ready",
-                "command": "bhd cart add <slug> --filter onorder",
+                "do": "save_query, then cart_add to request them on the portal",
             }
         )
     if counts.get("Priced"):
         then.append(
             {
                 "for": "Priced",
-                "do": "stage to cart, then purchase on the Bhoonidhi portal",
-                "command": "bhd cart add <slug> --filter priced",
+                "do": "save_query, then cart_add; purchase on the Bhoonidhi portal",
             }
         )
     return {
         "mcp_status": (
-            "Call save_query to persist this search and get a <slug>. Downloading "
-            "scenes and staging priced/on-order scenes to your cart are planned "
-            "for a future update; until then, act on the slug with the bhd CLI — "
-            "log in first with 'bhd auth login'."
+            "Call save_query to persist this search and get a <slug>, then act on "
+            "it in-server: download_query for open data, cart_add for on-order or "
+            "priced scenes. Downloads and cart need a login — check auth_status."
         ),
         "save_first": (
-            "save_query with the same arguments returns a <slug>. The bhd "
-            "commands below take that slug."
+            "save_query with the same arguments returns a <slug> that "
+            "download_query and cart_add take."
         ),
         "then": then,
     }
@@ -687,3 +698,366 @@ def remove_query(client: Any, slug: str) -> dict[str, Any]:
             "error": f"No saved query with slug '{slug}'. Call list_queries to see saved slugs.",
         }
     return {"status": "ok", "slug": slug, "message": f"Deleted saved query '{slug}'."}
+
+
+# --- authentication (read-only, never handles a secret) --------------------
+
+
+_NOT_AUTHENTICATED = {
+    "status": "not_authenticated",
+    "hint": (
+        "No usable Bhoonidhi session. Log in out of band with 'bhd auth login' "
+        "(or set BHOONIDHI_USERNAME / BHOONIDHI_PASSWORD in the server's "
+        "environment), then retry."
+    ),
+}
+
+
+def _ensure_authenticated(client: Any) -> dict[str, Any] | None:
+    """Confirm a usable session, refreshing an expired token if possible.
+
+    Returns None when the client can act, or the clean not-authenticated result
+    when it cannot. Never raises and never touches the password or token.
+    """
+    try:
+        with sdk_console_to_stderr():
+            if client.is_authenticated:
+                return None
+            # A session may exist on disk but its token expired — renew without
+            # a password before giving up.
+            if client.refresh() is not None:
+                return None
+    except BhoonidhiAuthError:
+        pass
+    return dict(_NOT_AUTHENTICATED)
+
+
+def auth_status(client: Any) -> dict[str, Any]:
+    """Report whether a usable Bhoonidhi session is configured.
+
+    Reads the held session only — never returns the token or password. When a
+    session is present but its token has lapsed, reports authenticated=False so
+    the agent tells the user to log in again.
+    """
+    try:
+        with sdk_console_to_stderr():
+            username = client.whoami()
+            authenticated = bool(client.is_authenticated)
+    except BhoonidhiAuthError:
+        username, authenticated = None, False
+
+    if authenticated:
+        return {
+            "status": "ok",
+            "authenticated": True,
+            "username": username,
+            "message": f"Logged in as {username}. Downloads and cart actions are available.",
+        }
+    return {
+        "status": "ok",
+        "authenticated": False,
+        "username": username,  # may be a known username with a lapsed token
+        "message": _NOT_AUTHENTICATED["hint"],
+    }
+
+
+# --- downloads (authenticated, background job + poll) ----------------------
+
+# A download that will move more than this many megabytes is one to hand off,
+# not babysit. Size is unknown up front (the portal only sends Content-Length
+# once a transfer starts), so this gate is applied to the live byte totals in a
+# status snapshot, not at kick-off.
+LARGE_DOWNLOAD_MB = int(os.environ.get("BHOONIDHI_MCP_LARGE_DOWNLOAD_MB", "500"))
+# Longest a single download_wait call may block, so it can never wedge a worker
+# thread. A watcher loops several bounded waits rather than one unbounded one.
+_MAX_WAIT_S = 120.0
+
+
+def _standalone_hint(slug: str, out_dir: str) -> str:
+    return (
+        f"Run it as a standalone command you own: 'bhd query download {slug} "
+        f"--out {out_dir}' (append ' &' or use nohup to detach). It survives "
+        "independently of this session, which an in-server job does not."
+    )
+
+
+_HANDOFF_HINT = (
+    "This download runs on its own in the background — it does NOT depend on the "
+    "conversation, so do not block by sleeping and re-polling. To stay informed "
+    "without tying up the chat, hand off: delegate a background watcher that "
+    "loops download_wait on this job_id and reports back when it finishes (or at "
+    "intervals), leaving you free to keep talking. Ask for a one-off check any "
+    "time with download_status. For a very large or long fetch, prefer a "
+    "standalone command instead (see large_download)."
+)
+
+
+def download_query(
+    client: Any,
+    slug: str,
+    *,
+    select: list[int | str] | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
+    """Start a background download of a saved query into the allow-listed root.
+
+    Confines output to ``<BHOONIDHI_MCP_DOWNLOAD_ROOT>/<slug>/`` — the path is
+    computed from the configured root and the slug, never taken from the caller.
+    Returns immediately with a ``job_id``; the download proceeds on its own
+    thread. Needs a session; returns the not-authenticated result when none is
+    held.
+    """
+    auth_error = _ensure_authenticated(client)
+    if auth_error is not None:
+        return auth_error
+
+    try:
+        with sdk_console_to_stderr():
+            query = client.query.show(slug)
+    except BhoonidhiNotFoundError:
+        return {
+            "status": "not_found",
+            "slug": slug,
+            "error": f"No saved query with slug '{slug}'. Call list_queries to see saved slugs.",
+        }
+
+    out_dir = str(_download_root() / slug)
+    downloadable = sum(
+        1 for s in (query.scenes or []) if scene_availability(s).is_downloadable
+    )
+    job = jobs.register(slug, out_dir, total_scenes=downloadable)
+
+    def _work(on_progress: Any) -> list[Any]:
+        with sdk_console_to_stderr():
+            return client.query.download(
+                slug,
+                out_dir,
+                select=select,
+                parallel=DOWNLOAD_PARALLEL,
+                force=force,
+                on_progress=on_progress,
+            )
+
+    jobs.run(job, _work)
+
+    return {
+        "status": "started",
+        "job_id": job.job_id,
+        "slug": slug,
+        "out_dir": out_dir,
+        "downloadable_scenes": downloadable,
+        "message": (
+            f"Download of {downloadable} scene(s) started into {out_dir}. "
+            "Interrupted downloads restart from scratch — the portal has no "
+            "resume support. File sizes are unknown until each transfer begins."
+        ),
+        "handoff": _HANDOFF_HINT,
+        "large_download": _standalone_hint(slug, out_dir),
+    }
+
+
+def _augment_status(snap: dict[str, Any]) -> dict[str, Any]:
+    """Add size-aware guidance to a live snapshot once bytes are known.
+
+    The scene-count guess at kick-off can't see that three NISAR scenes are
+    gigabytes; the byte totals here can. When the download has moved (or is
+    expected to move) past the large-download threshold, tell the agent to hand
+    off to a watcher rather than block the conversation.
+    """
+    if snap["status"] in ("completed", "failed"):
+        return snap
+    expected = snap.get("bytes_expected")
+    downloaded = snap.get("bytes_downloaded", 0)
+    threshold = LARGE_DOWNLOAD_MB * 1_000_000
+    is_large = (expected is not None and expected > threshold) or downloaded > threshold
+    if is_large:
+        snap["large_download"] = True
+        snap["handoff"] = _HANDOFF_HINT
+    return snap
+
+
+def download_status(job_id: str) -> dict[str, Any]:
+    """Report a background download job's progress and outcome.
+
+    Give the ``job_id`` from ``download_query``. Returns the live state with
+    byte totals and a transfer rate: running (bytes_downloaded, mb_downloaded,
+    rate_mb_s, percent when total size is known, and per-scene detail),
+    completed (with per-scene outcomes), or failed (with the error). A single
+    call — use it for a one-off check; to follow a job to completion without
+    blocking the conversation, hand off a watcher that loops download_wait.
+    Jobs live only for the server process's lifetime; an unknown id reports
+    not_found.
+    """
+    job = jobs.get(job_id)
+    if job is None:
+        return {
+            "status": "not_found",
+            "job_id": job_id,
+            "error": (
+                "No download job with that id. It may have been lost when the "
+                "server restarted — start a new download with download_query."
+            ),
+        }
+    return _augment_status(job.snapshot())
+
+
+def download_wait(job_id: str, timeout_s: float = 60.0) -> dict[str, Any]:
+    """Block until a download finishes or ``timeout_s`` elapses, then report.
+
+    The efficient way for a background watcher to follow a job: instead of
+    sleeping and re-polling, this waits inside the server and returns the moment
+    the job completes or fails — or after ``timeout_s`` with the latest progress
+    if it is still running. ``timeout_s`` is capped so it never wedges the
+    server; a watcher that wants to follow a long download calls this in a loop,
+    checking status between calls, and stops when status is completed or failed.
+    An unknown id reports not_found.
+    """
+    job = jobs.get(job_id)
+    if job is None:
+        return {
+            "status": "not_found",
+            "job_id": job_id,
+            "error": (
+                "No download job with that id. It may have been lost when the "
+                "server restarted — start a new download with download_query."
+            ),
+        }
+    capped = max(0.0, min(float(timeout_s), _MAX_WAIT_S))
+    return _augment_status(job.wait(capped))
+
+
+# --- cart (authenticated) --------------------------------------------------
+
+
+_CART_KIND_LABEL = {
+    "DIRECT": "ready",
+    "ORDER": "on-order",
+    "PRICED": "priced",
+}
+
+
+def _cart_kind_label(kind: Any) -> str:
+    """A CartKind enum (or its name) as a plain lowercase label."""
+    name = getattr(kind, "name", str(kind))
+    return _CART_KIND_LABEL.get(name, name.lower())
+
+
+def cart_add(
+    client: Any, slug: str, *, select: list[int | str] | None = None
+) -> dict[str, Any]:
+    """Stage a saved query's scenes to the Bhoonidhi cart.
+
+    Routes each scene to the cart its access type selects (ready / on-order /
+    priced). Needs a session. Returns counts of what was staged and what failed.
+    """
+    auth_error = _ensure_authenticated(client)
+    if auth_error is not None:
+        return auth_error
+
+    try:
+        with sdk_console_to_stderr():
+            added, failed, _srt = client.cart.add(slug, select=select)
+    except BhoonidhiNotFoundError:
+        return {
+            "status": "not_found",
+            "slug": slug,
+            "error": f"No saved query with slug '{slug}'. Call list_queries to see saved slugs.",
+        }
+    except (BhoonidhiAPIError, BhoonidhiError) as exc:
+        return {"status": "error", "error": str(exc)}
+
+    staged = [
+        {"id": scene.get("ID") or scene.get("id"), "cart": _cart_kind_label(kind)}
+        for scene, kind in added
+    ]
+    not_staged = [
+        {"id": scene.get("ID") or scene.get("id"), "reason": reason}
+        for scene, reason in failed
+    ]
+    return {
+        "status": "ok",
+        "slug": slug,
+        "added": len(staged),
+        "failed": len(not_staged),
+        "staged": staged,
+        "not_staged": not_staged,
+        "message": (
+            f"Staged {len(staged)} scene(s) to the cart"
+            + (f", {len(not_staged)} failed" if not_staged else "")
+            + ". Priced scenes still need purchasing on the Bhoonidhi portal."
+        ),
+    }
+
+
+def cart_list(
+    client: Any, *, filter_by: str | list[str] | None = None, last: str | None = None
+) -> dict[str, Any]:
+    """List scenes currently staged in the cart, across all three carts.
+
+    Cart items are filed by add-date; with no window this shows today only, so
+    widen it with ``last`` (e.g. "1 week"). ``filter_by`` limits to states:
+    ready, archived, onorder, priced. Needs a session.
+    """
+    auth_error = _ensure_authenticated(client)
+    if auth_error is not None:
+        return auth_error
+
+    try:
+        with sdk_console_to_stderr():
+            items = client.cart.list(filter_by=filter_by, last=last)
+    except (BhoonidhiAPIError, BhoonidhiError) as exc:
+        return {"status": "error", "error": str(exc)}
+
+    shaped = [
+        {
+            "id": item.get("ID") or item.get("id"),
+            "satellite": item.get("SATELLITE"),
+            "sensor": item.get("SENSOR"),
+            "date_of_pass": item.get("DOP"),
+        }
+        for item in items
+    ]
+    return {"status": "ok", "total": len(shaped), "items": shaped}
+
+
+def cart_remove(
+    client: Any,
+    *,
+    slug: str | None = None,
+    select: list[int | str] | None = None,
+    last: str | None = None,
+    filter_by: str | list[str] | None = None,
+) -> dict[str, Any]:
+    """Remove scenes from the cart.
+
+    Address rows two ways: pass ``slug`` to index a saved query's scenes, or
+    omit it and let ``select`` index the merged cart itself (same numbers
+    cart_list shows under the same window/filter). Needs a session.
+    """
+    auth_error = _ensure_authenticated(client)
+    if auth_error is not None:
+        return auth_error
+
+    try:
+        with sdk_console_to_stderr():
+            removed, failed = client.cart.rm(
+                slug=slug, select=select, last=last, filter_by=filter_by
+            )
+    except BhoonidhiNotFoundError:
+        return {
+            "status": "not_found",
+            "slug": slug,
+            "error": f"No saved query with slug '{slug}'. Call list_queries to see saved slugs.",
+        }
+    except (BhoonidhiAPIError, BhoonidhiError) as exc:
+        return {"status": "error", "error": str(exc)}
+
+    return {
+        "status": "ok",
+        "removed": len(removed),
+        "failed": len(failed),
+        "removed_ids": [scene_id for scene_id, _kind in removed],
+        "not_removed": [{"id": sid, "reason": reason} for sid, reason in failed],
+        "message": f"Removed {len(removed)} scene(s) from the cart"
+        + (f", {len(failed)} failed." if failed else "."),
+    }

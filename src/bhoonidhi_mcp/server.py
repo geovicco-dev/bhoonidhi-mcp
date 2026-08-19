@@ -76,9 +76,8 @@ def search_scenes(
     of these counts and a "how_to_act" block. Tell the user clearly when scenes
     are Archived, OnOrder, or Priced and what each needs. This search is
     stateless: to act on these scenes, call save_query with the same arguments to
-    persist them and get a <slug>. Downloading and cart staging in-server are
-    planned for a future update; until then, "how_to_act" gives the exact bhd CLI
-    commands the user runs on that slug (after 'bhd auth login').
+    persist them and get a <slug>, then download_query (open data) or cart_add
+    (on-order / priced) on that slug — both need a login (see auth_status).
     Downloads cannot be resumed if interrupted (the portal has no range support).
     """
     return tools.search_scenes(
@@ -231,6 +230,122 @@ def remove_query(slug: str) -> dict:
     query has that slug.
     """
     return tools.remove_query(_client, slug)
+
+
+@server.tool()
+def auth_status() -> dict:
+    """Report whether a Bhoonidhi login is configured for downloads and cart.
+
+    Read-only: it never asks for or returns a password or token. Returns
+    authenticated=True with the username when a usable session is held, or
+    authenticated=False with guidance to log in ('bhd auth login' out of band,
+    or set BHOONIDHI_USERNAME / BHOONIDHI_PASSWORD in the server's environment).
+    Call this before download or cart actions to tell the user if a login is
+    needed.
+    """
+    return tools.auth_status(_client)
+
+
+@server.tool()
+def download_query(
+    slug: str,
+    select: list | None = None,
+    force: bool = False,
+) -> dict:
+    """Download a saved query's open-access scenes in the background.
+
+    Give the slug from save_query or list_queries. Downloads run to a fixed,
+    server-configured root (BHOONIDHI_MCP_DOWNLOAD_ROOT, default ~/Downloads),
+    under a per-slug folder — you cannot choose an arbitrary path. select
+    narrows to specific scenes (1-based indices or full scene IDs); omit it for
+    the whole query. force re-downloads files already present.
+
+    Needs a login (see auth_status). Priced and on-order scenes are skipped —
+    stage those with cart_add instead. Returns immediately with a job_id: the
+    download runs on its own and does NOT depend on this conversation, so never
+    block by sleeping and re-polling. To follow it hands-free, delegate a
+    background watcher that loops download_wait on the job_id and reports back,
+    keeping you free to keep talking; the result's 'handoff' note says so. File
+    sizes are unknown until each transfer starts (the portal reveals them only
+    then); once a download proves large, download_status/download_wait flag it
+    and 'large_download' offers a standalone command that outlives this session.
+    Interrupted downloads restart from scratch (no resume support).
+    """
+    return tools.download_query(_client, slug, select=select, force=force)
+
+
+@server.tool()
+def download_status(job_id: str) -> dict:
+    """Check a background download started by download_query (one-off).
+
+    Give the job_id from download_query. Returns the live state: running (with
+    bytes_downloaded, mb_downloaded, rate_mb_s, percent when the total size is
+    known, and per-scene detail), completed (with per-scene outcomes), or failed
+    (with the error). Use this for a single progress check. To follow a job to
+    completion without tying up the conversation, use download_wait from a
+    delegated watcher instead. Jobs exist only while the server runs; an unknown
+    id returns status="not_found".
+    """
+    return tools.download_status(job_id)
+
+
+@server.tool()
+def download_wait(job_id: str, timeout_s: float = 60.0) -> dict:
+    """Wait for a background download to finish, then report — for a watcher.
+
+    Give the job_id from download_query. Blocks inside the server and returns as
+    soon as the download completes or fails, or after timeout_s (capped at 120s)
+    with the latest progress if still running. This is the efficient way to
+    follow a job: a delegated background watcher calls it in a loop and stops
+    when status is "completed" or "failed", so the main conversation is never
+    blocked on sleeps. Prefer this over repeated sleep+download_status. An
+    unknown id returns status="not_found".
+    """
+    return tools.download_wait(job_id, timeout_s=timeout_s)
+
+
+@server.tool()
+def cart_add(slug: str, select: list | None = None) -> dict:
+    """Stage a saved query's scenes to the Bhoonidhi cart.
+
+    Give the slug from save_query or list_queries. Each scene is routed to the
+    cart its access type needs (ready / on-order / priced); select narrows to
+    specific scenes (1-based indices or scene IDs). Needs a login (see
+    auth_status). Use this for on-order and priced scenes; priced ones still
+    need purchasing on the portal afterwards. Returns counts of what was staged
+    and what failed.
+    """
+    return tools.cart_add(_client, slug, select=select)
+
+
+@server.tool()
+def cart_list(filter_by: str | None = None, last: str | None = None) -> dict:
+    """List scenes currently staged in the Bhoonidhi cart.
+
+    Cart items are filed by the date they were added; with no window this shows
+    today only, so pass last (e.g. "1 week") to widen it. filter_by limits to a
+    state: ready, archived, onorder, or priced. Needs a login (see auth_status).
+    """
+    return tools.cart_list(_client, filter_by=filter_by, last=last)
+
+
+@server.tool()
+def cart_remove(
+    slug: str | None = None,
+    select: list | None = None,
+    last: str | None = None,
+    filter_by: str | None = None,
+) -> dict:
+    """Remove scenes from the Bhoonidhi cart.
+
+    Two ways to address rows: pass slug to index a saved query's scenes, or omit
+    it and let select index the merged cart itself (the same row numbers
+    cart_list shows under the same last/filter_by window). Needs a login (see
+    auth_status).
+    """
+    return tools.cart_remove(
+        _client, slug=slug, select=select, last=last, filter_by=filter_by
+    )
 
 
 @server.resource("bhoonidhi://archive")
