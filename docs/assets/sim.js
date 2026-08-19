@@ -66,7 +66,6 @@
       color: color, weight: 2, opacity: 1,
       fillColor: color, fillOpacity: 0.12, lineJoin: 'miter'
     }).addTo(layer);
-    addReadoutRow(s);
     if (REDUCED) return;
     // Fade the footprint in, with a brief outline flash on arrival.
     poly.setStyle({ opacity: 0, fillOpacity: 0 });
@@ -78,37 +77,76 @@
     })(t0);
   }
 
-  // The map has a fixed height; the space that opens up below it as the
-  // transcript grows is filled with a manifest of the footprints on the map,
-  // one row per scene, trickling in as each plots.
-  var mrList = document.getElementById('mr-list');
-  var mrCount = document.getElementById('mr-count');
-  var mrShown = 0;
-  function resetReadout() {
-    if (!mrList) return;
-    mrList.innerHTML = '<div class="mr-empty">Footprints appear here as the search returns scenes — each row is one acquisition on the map, tagged by whether you can download it.</div>';
-    if (mrCount) mrCount.textContent = '';
-    mrShown = 0;
+  // The map has a fixed height; the space below it holds capture-summary
+  // insights the agent would read off the result — how many scenes, what share
+  // is downloadable now, which platforms, the date window, and the sensor.
+  var insEl = document.getElementById('map-insights');
+  function resetInsights() {
+    if (!insEl) return;
+    insEl.innerHTML = '<div class="ins-idle">The agent\u2019s findings land here — coverage, how many scenes you can download now, and what they are — as the search comes back.</div>';
   }
-  function addReadoutRow(s) {
-    if (!mrList) return;
-    if (mrShown === 0) mrList.innerHTML = '';
-    var lbl = s.st === 'OnOrder' ? 'On order' : s.st;
-    var row = document.createElement('div');
-    row.className = 'mr-row';
-    row.innerHTML = '<span class="sw ' + s.st + '"></span>' +
-      '<span class="rid">' + s.id + '</span>' +
-      '<span class="rdop">' + s.dop + '</span>' +
-      '<span class="rst ' + s.st + '">' + lbl + '</span>';
-    mrList.appendChild(row);
-    mrShown += 1;
-    if (mrCount) mrCount.textContent = mrShown + ' on map';
+  function ORDER() { return ['Ready', 'Archived', 'OnOrder', 'Priced']; }
+  function labelFor(st) { return st === 'OnOrder' ? 'On order' : st; }
+  function renderInsights(run, step) {
+    if (!insEl) return;
+    var scenes = step.scenes || [];
+    var counts = {};
+    scenes.forEach(function (s) { counts[s.st] = (counts[s.st] || 0) + 1; });
+    // Prefer the run's full-result summary counts (over all matched scenes),
+    // falling back to the plotted sample.
+    var summaryCounts = {};
+    (step.summary || []).forEach(function (p) {
+      var n = parseInt(p[1], 10); if (!isNaN(n)) summaryCounts[p[0]] = n;
+    });
+    var total = step.total || scenes.length;
+    var byState = {};
+    ORDER().forEach(function (st) { byState[st] = summaryCounts[st] || 0; });
+    var sumAll = ORDER().reduce(function (a, st) { return a + byState[st]; }, 0) || total;
+    var ready = byState.Ready || 0;
+    var openData = (byState.Ready || 0) + (byState.Archived || 0);
+
+    // Availability bar segments.
+    var bar = ORDER().filter(function (st) { return byState[st] > 0; }).map(function (st) {
+      var pct = Math.round((byState[st] / sumAll) * 100);
+      return '<span class="seg ' + st + '" style="width:' + pct + '%" title="' + labelFor(st) + ': ' + byState[st] + '"></span>';
+    }).join('');
+    var legend = ORDER().filter(function (st) { return byState[st] > 0; }).map(function (st) {
+      return '<span class="ins-lg"><i class="' + st + '"></i>' + byState[st] + ' ' + labelFor(st) + '</span>';
+    }).join('');
+
+    // A plain-language takeaway on what you can actually pull now.
+    var takeaway;
+    if (ready > 0) {
+      takeaway = '<b>' + ready + ' of ' + total + '</b> ready to download now' +
+        (openData > ready ? ', ' + (openData - ready) + ' more open once requested' : '') + '.';
+    } else if (openData > 0) {
+      takeaway = '<b>0 staged</b> right now — ' + openData + ' are open data you request on the portal first.';
+    } else {
+      takeaway = '<b>All ' + total + '</b> are commercial (priced or on order) — none are free downloads.';
+    }
+
+    insEl.innerHTML =
+      '<div class="ins-grid">' +
+        '<div class="ins-stat"><div class="v">' + total + '</div><div class="k">scenes found</div></div>' +
+        '<div class="ins-stat"><div class="v">' + ready + '</div><div class="k">ready now</div></div>' +
+        '<div class="ins-stat"><div class="v">' + run.res + '</div><div class="k">resolution</div></div>' +
+      '</div>' +
+      '<div class="ins-bar-wrap"><div class="ins-bar-lbl">Availability</div>' +
+        '<div class="ins-bar">' + bar + '</div>' +
+        '<div class="ins-legend">' + legend + '</div>' +
+      '</div>' +
+      '<div class="ins-takeaway">' + takeaway + '</div>' +
+      '<div class="ins-meta">' +
+        '<div><span class="mk">Platforms</span><span class="mv">' + step.matched + '</span></div>' +
+        '<div><span class="mk">Sensor</span><span class="mv">' + run.sensor + '</span></div>' +
+        '<div><span class="mk">Window</span><span class="mv">' + run.window + '</span></div>' +
+      '</div>';
   }
 
   function setMapForRun(run) {
     if (!map) return;
     layer.clearLayers();
-    resetReadout();
+    resetInsights();
     map.invalidateSize();
     var b = run.bbox;
     var bounds = [[b.miny, b.minx], [b.maxy, b.maxx]];
@@ -144,23 +182,29 @@
     return 800;
   }
 
+  function scrollChat() {
+    if (!T || REDUCED) return;
+    T.scrollTop = T.scrollHeight;
+  }
+
   function renderStep(run, step) {
     var m = document.createElement('div'); m.className = 'msg agent';
     if (step.type === 'agent') {
       m.innerHTML = '<div class="who">Agent</div><div class="txt">' + step.txt + '</div>';
-      T.appendChild(m); return;
+      T.appendChild(m); scrollChat(); return;
     }
     if (step.type === 'answer') {
       m.innerHTML = '<div class="who">Agent · answer</div><div class="answer">' + step.html + '</div>';
-      T.appendChild(m); return;
+      T.appendChild(m); scrollChat(); return;
     }
     // tool call
     var tc = document.createElement('div'); tc.className = 'toolcall';
     tc.innerHTML = '<div class="tc-h"><span class="fn">' + step.fn + '()</span>' +
       '<span class="st"><span class="led"></span>calling</span></div>' +
       '<div class="tc-b"><span class="k">args</span> · ' + argLine(step.args) + '</div>';
+    m.className = 'msg agent tool';
     m.innerHTML = '<div class="who">Agent · tool call</div>';
-    m.appendChild(tc); T.appendChild(m);
+    m.appendChild(tc); T.appendChild(m); scrollChat();
 
     at(REDUCED ? 0 : 700, function () {
       tc.classList.add('done');
@@ -187,6 +231,7 @@
           var sm = document.createElement('div'); sm.className = 'summary';
           sm.innerHTML = step.summary.map(function (p) { return '<span class="pill ' + p[0] + '">' + p[1] + '</span>'; }).join('');
           b.appendChild(sm);
+          renderInsights(run, step);
         });
       }
     });
@@ -200,7 +245,7 @@
     setMapForRun(run);
     Array.prototype.forEach.call(promptsEl.children, function (c, i) { c.classList.toggle('active', i === idx); });
     var u = document.createElement('div'); u.className = 'msg user';
-    u.innerHTML = '<div class="who">You · prompt</div><div class="txt">' + run.prompt + '</div>';
+    u.innerHTML = '<div class="who">You</div><div class="bub">' + run.prompt + '</div>';
     T.appendChild(u);
     var delay = 420;
     run.steps.forEach(function (step) { at(delay, function () { renderStep(run, step); }); delay += stepDuration(step); });

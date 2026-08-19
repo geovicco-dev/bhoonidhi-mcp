@@ -22,6 +22,9 @@ window.RUNS = [
     place: 'Shillong, Meghalaya',
     bbox: { minx: 91.7228, miny: 25.4160, maxx: 92.0428, maxy: 25.7360 },
     center: [25.5760, 91.8828],
+    sensor: 'MSI · optical',
+    res: '10 m',
+    window: '1–14 Jan 2024',
     // Representative acquisition footprint (deg): Sentinel-2 tiles, orbit-tilted.
     footprint: { w: 0.34, h: 0.40, rot: -12 },
     steps: [
@@ -57,6 +60,9 @@ window.RUNS = [
     place: 'Loktak Lake, Manipur',
     bbox: { minx: 93.7633, miny: 24.5045, maxx: 93.8614, maxy: 24.6139 },
     center: [24.5584, 93.8132],
+    sensor: 'SAR IW · radar',
+    res: '20 m',
+    window: 'Jan–Mar 2024',
     // Sentinel-1 IW swaths are wide; representative footprint, orbit-tilted.
     footprint: { w: 0.46, h: 0.58, rot: -8 },
     steps: [
@@ -91,6 +97,9 @@ window.RUNS = [
     place: 'Chilika Lake, Odisha',
     bbox: { minx: 85.0934, miny: 19.4673, maxx: 85.6574, maxy: 19.9033 },
     center: [19.6853, 85.2504],
+    sensor: 'PAN + MX · optical',
+    res: '0.28–1.6 m',
+    window: 'Jan–Mar 2025',
     // Cartosat is high-res with a narrow swath: small footprints, orbit-tilted.
     footprint: { w: 0.12, h: 0.16, rot: -14 },
     steps: [
