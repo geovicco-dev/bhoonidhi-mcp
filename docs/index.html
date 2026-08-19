@@ -305,7 +305,7 @@ footer{border-top:1px solid var(--line);padding:32px 0;position:relative;z-index
       <h1 class="h1">Search ISRO's satellite archive in <span class="em">plain language</span>.</h1>
       <p class="lead">An MCP server that lets an AI agent search ISRO's Bhoonidhi archive in plain language, download the scenes that are ready, and stage the rest to your cart.</p>
       <div class="hero-cta">
-        <div class="cmd"><span class="p">$</span><code>git clone https://github.com/geovicco-dev/bhoonidhi-mcp</code><button class="copy" data-copy="git clone https://github.com/geovicco-dev/bhoonidhi-mcp">Copy</button></div>
+        <div class="cmd"><span class="p">$</span><code>uvx --from git+https://github.com/geovicco-dev/bhoonidhi-mcp bhoonidhi-mcp</code><button class="copy" data-copy="uvx --from git+https://github.com/geovicco-dev/bhoonidhi-mcp bhoonidhi-mcp">Copy</button></div>
         <a class="btn-primary" href="#run">Watch it run <span aria-hidden="true">→</span></a>
       </div>
       <div class="badges">
@@ -484,12 +484,13 @@ footer{border-top:1px solid var(--line);padding:32px 0;position:relative;z-index
 <section id="start">
   <div class="wrap start-inner">
     <span class="eyebrow" style="justify-content:center">Get started</span>
-    <h2 style="font-size:clamp(28px,3.6vw,40px);margin-top:14px">Clone it, wire your client, ask a question.</h2>
-    <div class="cmd"><span class="p">$</span><code>git clone https://github.com/geovicco-dev/bhoonidhi-mcp &amp;&amp; cd bhoonidhi-mcp &amp;&amp; uv sync</code><button class="copy" data-copy="git clone https://github.com/geovicco-dev/bhoonidhi-mcp && cd bhoonidhi-mcp && uv sync">Copy</button></div>
+    <h2 style="font-size:clamp(28px,3.6vw,40px);margin-top:14px">Run it with one command, wire your client, ask a question.</h2>
+    <div class="cmd"><span class="p">$</span><code>uvx --from git+https://github.com/geovicco-dev/bhoonidhi-mcp bhoonidhi-mcp</code><button class="copy" data-copy="uvx --from git+https://github.com/geovicco-dev/bhoonidhi-mcp bhoonidhi-mcp">Copy</button></div>
     <div class="start-links">
       <a href="https://github.com/geovicco-dev/bhoonidhi-mcp" target="_blank" rel="noopener">bhoonidhi-mcp repo ↗</a>
       <a href="https://github.com/geovicco-dev/bhoonidhi-downloader" target="_blank" rel="noopener">bhoonidhi-downloader ↗</a>
     </div>
+    <p style="margin-top:18px;font-size:13px;color:var(--ink-mute)">Needs <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener" style="color:var(--ink-dim)"><span class="mono">uv</span></a>. The first run fetches and builds from source; later runs start from cache.</p>
   </div>
 </section>
 

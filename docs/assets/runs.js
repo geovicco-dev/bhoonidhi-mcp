@@ -210,25 +210,29 @@ window.RUNS = [
   }
 ];
 
+// Client configs. Every client runs the server the same way: uvx fetches, builds,
+// and launches it straight from the GitHub source — no clone, no venv, no path to
+// hunt down. Requires uv (https://docs.astral.sh/uv). The command is always
+//   uvx --from git+https://github.com/geovicco-dev/bhoonidhi-mcp bhoonidhi-mcp
 window.CLIENTS = [
   { name: 'MCP Inspector',
     desc: 'A browser UI to click each tool and watch live responses. No client config — a good first check that the server runs.',
-    code: '<span class="cm"># after: git clone + uv sync</span>\nnpx @modelcontextprotocol/inspector \\\n  /path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp',
-    note: 'Start here to confirm the server handshakes before wiring a real client.' },
+    code: 'npx @modelcontextprotocol/inspector \\\n  uvx --from git+https://github.com/geovicco-dev/bhoonidhi-mcp bhoonidhi-mcp',
+    note: 'Start here to confirm the server handshakes before wiring a real client. uvx fetches, builds, and runs it \u2014 no clone needed.' },
   { name: 'Claude Code',
     desc: 'Register it with the <code>claude</code> CLI. Inside a session, <code>/mcp</code> lists it as connected.',
-    code: 'claude mcp add bhoonidhi -- \\\n  /path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp\n\n<span class="cm"># inside a claude session:</span>\n<span class="cm"># /mcp  ->  "bhoonidhi" connected</span>',
+    code: 'claude mcp add bhoonidhi -- \\\n  uvx --from git+https://github.com/geovicco-dev/bhoonidhi-mcp bhoonidhi-mcp\n\n<span class="cm"># inside a claude session:</span>\n<span class="cm"># /mcp  ->  "bhoonidhi" connected</span>',
     note: 'Run inside a project directory to write a local .mcp.json, or add --scope user for global.' },
   { name: 'OpenCode',
     desc: 'Add a local server block to <code>~/.config/opencode/opencode.json</code>, then restart.',
-    code: '{\n  <span class="str">"$schema"</span>: <span class="str">"https://opencode.ai/config.json"</span>,\n  <span class="str">"mcp"</span>: {\n    <span class="str">"bhoonidhi"</span>: {\n      <span class="str">"type"</span>: <span class="str">"local"</span>,\n      <span class="str">"command"</span>: [<span class="str">"/path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp"</span>],\n      <span class="str">"enabled"</span>: <span class="kw">true</span>\n    }\n  }\n}',
-    note: 'Use the absolute path to the entry point in the project\u2019s .venv — most reliable across clients.' },
+    code: '{\n  <span class="str">"$schema"</span>: <span class="str">"https://opencode.ai/config.json"</span>,\n  <span class="str">"mcp"</span>: {\n    <span class="str">"bhoonidhi"</span>: {\n      <span class="str">"type"</span>: <span class="str">"local"</span>,\n      <span class="str">"command"</span>: [<span class="str">"uvx"</span>, <span class="str">"--from"</span>, <span class="str">"git+https://github.com/geovicco-dev/bhoonidhi-mcp"</span>, <span class="str">"bhoonidhi-mcp"</span>],\n      <span class="str">"enabled"</span>: <span class="kw">true</span>\n    }\n  }\n}',
+    note: 'The command array is uvx plus its arguments \u2014 the same shape every JSON-configured client uses.' },
   { name: 'Claude Desktop',
     desc: 'Edit <code>claude_desktop_config.json</code> (create it if missing), then fully quit and relaunch. Tools appear under the plug icon.',
-    code: '{\n  <span class="str">"mcpServers"</span>: {\n    <span class="str">"bhoonidhi"</span>: {\n      <span class="str">"command"</span>: <span class="str">"/path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp"</span>,\n      <span class="str">"args"</span>: []\n    }\n  }\n}',
-    note: 'GUI apps often miss your shell PATH, so point at the absolute path to the entry point.' },
+    code: '{\n  <span class="str">"mcpServers"</span>: {\n    <span class="str">"bhoonidhi"</span>: {\n      <span class="str">"command"</span>: <span class="str">"uvx"</span>,\n      <span class="str">"args"</span>: [<span class="str">"--from"</span>, <span class="str">"git+https://github.com/geovicco-dev/bhoonidhi-mcp"</span>, <span class="str">"bhoonidhi-mcp"</span>]\n    }\n  }\n}',
+    note: 'GUI apps often miss your shell PATH \u2014 if it can\u2019t find uvx, use its absolute path (run <span class="mono">which uvx</span>) as the command.' },
   { name: 'Any stdio client',
-    desc: 'The same shape works across MCP clients: a named server with a command and empty args.',
-    code: '{\n  <span class="str">"mcpServers"</span>: {\n    <span class="str">"bhoonidhi"</span>: {\n      <span class="str">"command"</span>: <span class="str">"/path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp"</span>,\n      <span class="str">"args"</span>: []\n    }\n  }\n}',
+    desc: 'The same shape works across MCP clients: uvx as the command, the git source and entry point as its args.',
+    code: '{\n  <span class="str">"mcpServers"</span>: {\n    <span class="str">"bhoonidhi"</span>: {\n      <span class="str">"command"</span>: <span class="str">"uvx"</span>,\n      <span class="str">"args"</span>: [<span class="str">"--from"</span>, <span class="str">"git+https://github.com/geovicco-dev/bhoonidhi-mcp"</span>, <span class="str">"bhoonidhi-mcp"</span>]\n    }\n  }\n}',
     note: 'Downloads and cart use your own Bhoonidhi login \u2014 run <span class="mono">bhd auth login</span> once in your terminal. Credentials stay with you; the agent only sees whether a session exists.' }
 ];
