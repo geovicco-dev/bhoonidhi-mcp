@@ -1,0 +1,11 @@
+{
+  // markdownlint config for bhoonidhi-mcp docs.
+  "config": {
+    // Prose and wide tables wrap naturally; a hard column cap fights both.
+    "MD013": false,
+    // A changelog repeats "### Added" under each version by design.
+    "MD024": false
+  },
+  "globs": ["**/*.md"],
+  "ignores": ["node_modules", ".venv", "internal", "AGENTS.md"]
+}

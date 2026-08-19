@@ -25,7 +25,7 @@ login, done out of band with `bhd auth login` (the server reuses that session).
 ## Tools
 
 | Tool | What it does | Login |
-|------|--------------|-------|
+| ------ | -------------- | ------- |
 | `list_archive` | The vocabulary of satellites, sensors, and search tokens the portal supports, live from Bhoonidhi. | no |
 | `resolve_location` | Turns a place name ("Loktak Lake") into a centroid and bounding box. Rejects inputs that are not place names. | no |
 | `search_scenes` | Natural-language scene search over an area and date range. Resolves a casual satellite name to exact tokens, and reports each scene's availability (Ready / Archived / OnOrder / Priced). Stateless — nothing is saved. | no |
@@ -77,7 +77,7 @@ command.
 Every MCP client needs the same thing: the command to launch. Use the absolute
 path to the entry point (most reliable across GUI and CLI clients):
 
-```
+```text
 /path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp
 ```
 
@@ -134,13 +134,13 @@ than claiming they are all ready.
 
 Copy these into any connected agent to get a feel for what it can do.
 
-**Discover the archive**
+### Discover the archive
 
 - "What satellites and sensors does Bhoonidhi have?"
 - "Which sensors does ResourceSat-2A carry, and at what resolution?"
 - "Does Bhoonidhi have any radar satellites?"
 
-**Search for scenes**
+### Search for scenes
 
 - "Find Sentinel-2 scenes over Shillong in January 2024."
 - "Show me Cartosat imagery within 20 km of Bengaluru in the first half of 2024."
@@ -148,29 +148,29 @@ Copy these into any connected agent to get a feel for what it can do.
 - "What Landsat-8 imagery covers Kaziranga National Park last winter?"
 - "Find MODIS scenes over the Rann of Kutch in December 2023."
 
-**Check what's available to download**
+### Check what's available to download
 
 - "Of those Sentinel-2 scenes, how many can I actually download right now?"
 - "Which of these need to be ordered or paid for?"
 
-**Preview a download**
+### Preview a download
 
 - "Preview what downloading those scenes would fetch."
 
-**Save a search to reuse**
+### Save a search to reuse
 
 - "Save that Sentinel-2 search so I can download it later."
 - "List my saved searches."
-- "Show me what's in the search I saved as <slug>."
-- "Delete the saved search <slug>."
+- "Show me what's in the search I saved as `<slug>`."
+- "Delete the saved search `<slug>`."
 
-**Download and cart** (need a login — see below)
+### Download and cart (needs a login — see below)
 
 - "Am I logged in to Bhoonidhi?"
-- "Download the open-data scenes from my saved search <slug>."
+- "Download the open-data scenes from my saved search `<slug>`."
 - "How's that download going?"
-- "Download <slug> and let me know when it's done — I'll keep working."
-- "Add the priced scenes from <slug> to my cart."
+- "Download `<slug>` and let me know when it's done — I'll keep working."
+- "Add the priced scenes from `<slug>` to my cart."
 - "What's in my cart this week?"
 
 ## Login (for downloads and cart)
@@ -193,8 +193,8 @@ server's environment; the server reads them only to establish a session.
 Set as environment variables (all optional):
 
 | Variable | Default | Purpose |
-|----------|---------|---------|
-| `BHOONIDHI_MCP_GEOCODER_USER_AGENT` | `bhoonidhi-mcp/0.1` | User-Agent sent to Nominatim (its usage policy asks for a descriptive one). |
+| ---------- | --------- | --------- |
+| `BHOONIDHI_MCP_GEOCODER_USER_AGENT` | `bhoonidhi-mcp/0.2` | User-Agent sent to Nominatim (its usage policy asks for a descriptive one). |
 | `BHOONIDHI_MCP_FUZZY_THRESHOLD` | `88` | Score (0–100) a satellite-name match must clear to be confident; below it, candidates are returned for the agent to confirm. |
 | `BHOONIDHI_MCP_MAX_RESULTS` | `50` | Maximum scenes returned inline by `search_scenes`. |
 | `BHOONIDHI_MCP_DOWNLOAD_ROOT` | `~/Downloads` | Allow-listed root every download writes under, as `<root>/<slug>/`. The agent cannot choose an arbitrary path. |
