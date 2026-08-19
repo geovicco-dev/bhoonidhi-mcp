@@ -123,7 +123,7 @@ def test_availability_reflects_staging_not_just_pricing():
 
 
 def test_result_guides_the_user_on_how_to_act():
-    """Read-only server must tell the user what's coming and the exact bhd command."""
+    """The stateless result must point at save_query and give the bhd commands."""
     ready = _scene("OpenData_DirectDownload", "Y")
     priced = _scene("Priced")
     out = search_scenes(
@@ -137,12 +137,9 @@ def test_result_guides_the_user_on_how_to_act():
         maxy=25.7,
     )
     act = out["how_to_act"]
-    # The agent is told the boundary and the roadmap.
-    assert "read-only" in act["mcp_status"] and "future update" in act["mcp_status"]
-    # A correct, reproducible saving command with the real bbox + a slug note.
-    cmd = act["reproduce_search"]
-    assert cmd.startswith("bhd query create 2024-01-01 2024-01-31")
-    assert "--minx 91.7" in cmd and "<slug>" in cmd
+    # The agent is told to persist first, and where in-server actions are headed.
+    assert "save_query" in act["mcp_status"] and "future update" in act["mcp_status"]
+    assert "save_query" in act["save_first"] and "<slug>" in act["save_first"]
     # Priced scenes route to cart; open data routes to download with no-resume note.
     fors = {step["for"]: step for step in act["then"]}
     assert any("Priced" in k for k in fors)
@@ -230,8 +227,7 @@ def test_valid_request_is_not_flagged_as_invalid():
 
 def test_product_narrows_every_selection_and_reaches_the_sdk():
     """product is a Selection field (the SAT_SEN_PROD token's third part), not a
-    sensor — it must reach the SDK query unchanged on every expanded selection,
-    and show up in the reproduced bhd command as SAT:SEN:PROD."""
+    sensor — it must reach the SDK query unchanged on every expanded selection."""
     client = _FakeClient(scenes=[_SCENE])
     out = search_scenes(
         client, "Sentinel-2", "2024-01-01", "2024-01-15",
@@ -242,7 +238,6 @@ def test_product_narrows_every_selection_and_reaches_the_sdk():
     selections = client.query.last_selections
     assert selections and all(s.sensor == "MSI" for s in selections)
     assert selections and all(s.product == "Level-1C" for s in selections)
-    assert "Sentinel-2A:MSI:Level-1C" in out["how_to_act"]["reproduce_search"]
 
 
 def test_portal_rejecting_all_selections_is_a_clean_empty_result():
