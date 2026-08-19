@@ -136,6 +136,9 @@ section{position:relative;padding:92px 0}
 .toolcall.dl .tc-h .fn{color:var(--ready)}
 .toolcall.cart .tc-h{background:rgba(201,139,255,.06)}
 .toolcall.cart .tc-h .fn{color:var(--priced)}
+.toolcall.refresh .tc-h{background:rgba(255,125,60,.06)}
+.toolcall.refresh .tc-h .fn{color:var(--sig)}
+.scene-row .newdot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ready);margin-right:7px;vertical-align:middle;box-shadow:0 0 0 3px rgba(79,214,196,.15)}
 .dlprog{margin-top:12px;border-top:1px dashed var(--line-2);padding-top:11px}
 .dl-top{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-mute)}
 .dl-top .dl-pct{color:var(--ready);font-weight:700}
@@ -188,6 +191,11 @@ section{position:relative;padding:92px 0}
 .stage .d{margin-top:10px;font-size:14.5px;color:var(--ink-dim)}
 .stage .io{margin-top:16px;font-family:var(--mono);font-size:11.5px;color:var(--ink-mute);border-top:1px dashed var(--line-2);padding-top:12px;line-height:1.7}
 .stage .io b{color:var(--ink-dim);font-weight:500}.stage .io .out{color:var(--phos)}
+.tlist{margin-top:16px;border-top:1px dashed var(--line-2);padding-top:6px}
+.tlist .t{display:grid;grid-template-columns:auto 1fr;gap:11px;align-items:baseline;padding:9px 0;border-top:1px solid var(--line)}
+.tlist .t:first-child{border-top:0}
+.tlist .fn{font-family:var(--mono);font-size:12px;color:var(--phos);white-space:nowrap}
+.tlist .g{font-size:12.5px;color:var(--ink-dim);line-height:1.45}
 .stage .arrow{position:absolute;right:-11px;top:50%;transform:translateY(-50%);z-index:3;width:22px;height:22px;border-radius:50%;background:var(--void);border:1px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:var(--sig);font-size:12px}
 @media(max-width:820px){.stage .arrow{display:none}}
 
@@ -206,6 +214,10 @@ section{position:relative;padding:92px 0}
 .codewrap .copy{position:absolute;top:12px;right:12px;margin:0}
 .cfg-note{margin-top:16px;font-size:13px;color:var(--ink-mute);display:flex;gap:10px;align-items:flex-start}
 .cfg-note .b{color:var(--sig);font-family:var(--mono);flex:none}
+.cred{margin-top:22px;border:1px solid var(--line-2);border-left:2px solid var(--phos);border-radius:12px;padding:18px 20px;background:linear-gradient(180deg,rgba(79,214,196,.04),transparent)}
+.cred-k{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--phos);margin-bottom:8px}
+.cred p{font-size:14px;color:var(--ink-dim);line-height:1.6;max-width:74ch}
+.cred b{color:var(--ink)}
 
 #built{background:linear-gradient(180deg,#080b10,var(--void))}
 .built{margin-top:36px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
@@ -230,6 +242,7 @@ footer{border-top:1px solid var(--line);padding:32px 0;position:relative;z-index
 .foot{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:12.5px;color:var(--ink-mute)}
 .foot a{color:var(--ink-dim)}.foot a:hover{color:var(--sig)}
 .foot .l{display:flex;gap:20px;flex-wrap:wrap}
+.foot .tm{width:100%;text-align:center;padding-top:14px;margin-top:4px;border-top:1px solid var(--line);color:var(--ink-mute);font-size:11.5px}
 
 .leaflet-container{background:#0a0e14}
 .leaflet-control-attribution{background:rgba(7,9,12,.7)!important;color:var(--ink-mute)!important;font-size:10px}
@@ -356,29 +369,44 @@ footer{border-top:1px solid var(--line);padding:32px 0;position:relative;z-index
   <div class="wrap">
     <div class="section-head">
       <span class="eyebrow">The tools</span>
-      <h2>Fifteen tools, from discovery to download.</h2>
-      <p>Each one is a thin adapter over the same client the <span class="mono">bhd</span> command line uses. Search, preview, and save are open to anyone. Downloading and cart use your own free Bhoonidhi account — the login is ISRO's, not this project's.</p>
+      <h2>Fifteen tools, grouped by what they do.</h2>
+      <p>Each is a thin wrapper over the same client the <span class="mono">bhd</span> command line uses. Search, preview, and saving a search are open to anyone. Downloading and cart use your own Bhoonidhi login — never this project's.</p>
     </div>
     <div class="pipe">
       <div class="stage">
         <div class="arrow">→</div>
         <div class="n">SEARCH &amp; DISCOVER · open to all</div>
         <h3>Find scenes</h3>
-        <p class="d">Explore the archive, resolve a place to a bounding box, run a live search, and preview what a download would fetch — with honest availability on every scene.</p>
-        <div class="io"><span class="out">list_archive · resolve_location · search_scenes · preview_download</span></div>
+        <div class="tlist">
+          <div class="t"><span class="fn">list_archive</span><span class="g">Every satellite, sensor, and search token the portal supports.</span></div>
+          <div class="t"><span class="fn">resolve_location</span><span class="g">Turn a place name into a bounding box.</span></div>
+          <div class="t"><span class="fn">search_scenes</span><span class="g">Search by area and dates; each scene comes back tagged by availability.</span></div>
+          <div class="t"><span class="fn">preview_download</span><span class="g">See what a download would fetch before you commit.</span></div>
+        </div>
       </div>
       <div class="stage">
         <div class="arrow">→</div>
         <div class="n">SAVE &amp; REUSE · open to all</div>
         <h3>Keep a search</h3>
-        <p class="d">Persist a search to a reusable slug, then list, inspect, or remove it — the slug is what downloads and cart staging key off later.</p>
-        <div class="io"><span class="out">save_query · list_queries · show_query · remove_query</span></div>
+        <div class="tlist">
+          <div class="t"><span class="fn">save_query</span><span class="g">Save a search under a short slug to act on later.</span></div>
+          <div class="t"><span class="fn">list_queries</span><span class="g">See your saved searches at a glance.</span></div>
+          <div class="t"><span class="fn">show_query</span><span class="g">Open one saved search and its scenes.</span></div>
+          <div class="t"><span class="fn">remove_query</span><span class="g">Delete a saved search.</span></div>
+        </div>
       </div>
       <div class="stage">
-        <div class="n">DOWNLOAD &amp; CART · your ISRO account</div>
+        <div class="n">DOWNLOAD &amp; CART · your Bhoonidhi login</div>
         <h3>Fetch or stage</h3>
-        <p class="d">Download open-access scenes in the background and follow the job to completion, or stage priced and on-order scenes to the Bhoonidhi cart.</p>
-        <div class="io"><span class="out">auth_status · download_query · download_status · download_wait · cart_add · cart_list · cart_remove</span></div>
+        <div class="tlist">
+          <div class="t"><span class="fn">auth_status</span><span class="g">Check whether you're logged in — nothing more.</span></div>
+          <div class="t"><span class="fn">download_query</span><span class="g">Download the ready scenes in the background.</span></div>
+          <div class="t"><span class="fn">download_status</span><span class="g">Check a running download once.</span></div>
+          <div class="t"><span class="fn">download_wait</span><span class="g">Follow a download until it finishes.</span></div>
+          <div class="t"><span class="fn">cart_add</span><span class="g">Send priced or on-order scenes to your cart.</span></div>
+          <div class="t"><span class="fn">cart_list</span><span class="g">See what's in the cart.</span></div>
+          <div class="t"><span class="fn">cart_remove</span><span class="g">Take scenes back out of the cart.</span></div>
+        </div>
       </div>
     </div>
   </div>
@@ -395,6 +423,10 @@ footer{border-top:1px solid var(--line);padding:32px 0;position:relative;z-index
     <div class="cfg">
       <div class="cfg-tabs" id="cfg-tabs"></div>
       <div class="cfg-body" id="cfg-body"></div>
+    </div>
+    <div class="cred">
+      <div class="cred-k">Your login stays yours</div>
+      <p>You log in to Bhoonidhi <b>outside the agent</b> — with <span class="mono">bhd auth login</span> in your own terminal, or environment variables the server reads. Your username and password are never sent to the agent, never typed into the chat, and never stored by this project. The agent can only ever see <b>whether</b> a valid session exists, through <span class="mono">auth_status</span> — not the credentials behind it.</p>
     </div>
   </div>
 </section>
@@ -444,11 +476,12 @@ footer{border-top:1px solid var(--line);padding:32px 0;position:relative;z-index
   <div class="wrap foot">
     <span>bhoonidhi-mcp · MIT · Python ≥ 3.10</span>
     <div class="l">
-      <a href="https://github.com/geovicco-dev/bhoonidhi-mcp" target="_blank" rel="noopener">GitHub</a>
-      <a href="https://github.com/geovicco-dev/bhoonidhi-downloader" target="_blank" rel="noopener">Downloader SDK</a>
-      <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">MCP</a>
+      <a href="https://github.com/geovicco-dev/bhoonidhi-downloader" target="_blank" rel="noopener">SDK &amp; CLI</a>
+      <a href="https://github.com/geovicco-dev/bhoonidhi-mcp" target="_blank" rel="noopener">MCP</a>
+      <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">What is MCP?</a>
     </div>
     <span>Not affiliated with ISRO · a community adapter over the public portal</span>
+    <span class="tm">™ &amp; © 2026 Aditya Sharma</span>
   </div>
 </footer>
 

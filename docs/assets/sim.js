@@ -58,15 +58,18 @@
     });
   }
 
-  function drawScene(run, s) {
+  function drawScene(run, s, opts) {
     if (!map) return;
+    opts = opts || {};
     var color = (THEME.avail && THEME.avail[s.st]) || '#888';
     var fp = run.footprint || { w: 0.2, h: 0.24, rot: -10 };
+    var full = opts.dim ? 0.32 : 1;               // prior scenes draw faint
     var poly = L.polygon(footprintCorners(s.lat, s.lon, fp), {
-      color: color, weight: 2, opacity: 1,
-      fillColor: color, fillOpacity: 0.12, lineJoin: 'miter'
+      color: color, weight: opts.dim ? 1 : 2, opacity: full,
+      fillColor: color, fillOpacity: 0.12 * full, lineJoin: 'miter',
+      dashArray: opts.dim ? '3 4' : null
     }).addTo(layer);
-    if (REDUCED) return;
+    if (REDUCED || opts.dim) return;
     // Fade the footprint in, with a brief outline flash on arrival.
     poly.setStyle({ opacity: 0, fillOpacity: 0 });
     var t0 = performance.now();
@@ -180,6 +183,7 @@
     if (step.type === 'answer') return 600;
     if (step.type === 'download') return 3200;
     if (step.type === 'cart') return 1500;
+    if (step.type === 'refresh') return (step.newScenes ? step.newScenes.length : 0) * 300 + 1400;
     if (step.type === 'tool') return step.scenes ? step.scenes.length * 280 + 750 : 1100;
     return 800;
   }
@@ -201,6 +205,7 @@
     }
     if (step.type === 'download') { renderDownload(m, step); return; }
     if (step.type === 'cart') { renderCart(m, step); return; }
+    if (step.type === 'refresh') { renderRefresh(run, m, step); return; }
     // tool call
     var tc = document.createElement('div'); tc.className = 'toolcall';
     tc.innerHTML = '<div class="tc-h"><span class="fn">' + step.fn + '()</span>' +
@@ -310,6 +315,43 @@
         b.innerHTML += '<div class="scene-rows"><span class="k">returns</span><br>' + step.result.join('<br>') + '</div>';
       }
       scrollChat();
+    });
+  }
+
+  // A refresh step: re-check a saved query for scenes published since. Prior
+  // scenes are drawn faint on the map; genuinely new ones plot highlighted and
+  // stream into the transcript, so "what changed" is obvious.
+  function renderRefresh(run, m, step) {
+    var tc = document.createElement('div'); tc.className = 'toolcall refresh';
+    tc.innerHTML = '<div class="tc-h"><span class="fn">' + step.fn + '</span>' +
+      '<span class="st"><span class="led"></span>checking</span></div>' +
+      '<div class="tc-b"><span class="k">args</span> · ' + argLine(step.args) + '</div>';
+    m.className = 'msg agent tool';
+    m.innerHTML = '<div class="who">Agent · refresh</div>';
+    m.appendChild(tc); T.appendChild(m); scrollChat();
+
+    // Seed the map: prior scenes faint, so new ones stand out against them.
+    setMapForRun(run);
+    (step.priorScenes || []).forEach(function (s) { drawScene(run, s, { dim: true }); });
+
+    at(REDUCED ? 0 : 750, function () {
+      tc.classList.add('done');
+      tc.querySelector('.st').innerHTML = '<span class="led"></span>' + step.newScenes.length + ' new';
+      var b = tc.querySelector('.tc-b');
+      if (step.result) {
+        b.innerHTML += '<div class="scene-rows"><span class="k">returns</span><br>' + step.result.join('<br>') + '</div>';
+      }
+      var h = document.createElement('div'); h.className = 'scene-rows';
+      h.innerHTML = '<span class="k">new scenes</span> <span class="s">since last check</span>';
+      b.appendChild(h);
+      step.newScenes.forEach(function (s, i) {
+        at(i * 300, function () {
+          var row = document.createElement('div'); row.className = 'scene-row';
+          row.innerHTML = '<span class="id"><span class="newdot"></span>' + s.id + '</span><span class="dop">' + s.dop + '</span>' + pill(s.st);
+          h.appendChild(row); drawScene(run, s); scrollChat();
+        });
+      });
+      at(step.newScenes.length * 300 + 120, function () { renderInsights(run, step); });
     });
   }
 

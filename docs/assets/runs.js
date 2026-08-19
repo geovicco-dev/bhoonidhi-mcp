@@ -163,6 +163,50 @@ window.RUNS = [
         ] },
       { type: 'answer', html: '<b>8 scenes staged to your cart</b> \u2014 6 to the priced cart, 2 to the on-order cart, each routed by its access type. The purchase itself happens on the Bhoonidhi Browse &amp; Order portal; the agent takes it right up to that step.' }
     ]
+  },
+  {
+    key: 'refresh',
+    chip: '4 · Keep a search fresh',
+    flow: 'Save once → check back for new scenes',
+    prompt: 'Check my saved Sundarbans flood watch for any new radar scenes.',
+    place: 'Sundarbans, West Bengal',
+    bbox: { minx: 88.7000, miny: 21.6000, maxx: 89.2000, maxy: 22.0000 },
+    center: [21.8000, 88.9500],
+    sensor: 'SAR IW · radar',
+    res: '20 m',
+    window: 'Jun 2024 → now',
+    // Sentinel-1 IW swaths are wide; representative footprint, orbit-tilted.
+    footprint: { w: 0.46, h: 0.56, rot: -7 },
+    steps: [
+      { type: 'agent', txt: 'You saved this search earlier. First I find its slug, then check for scenes added since.' },
+      { type: 'tool', fn: 'list_queries', args: [],
+        result: [
+          '{ queries: [ {',
+          '&nbsp;&nbsp;slug: <s>"sundarbans-flood-watch"</s>,',
+          '&nbsp;&nbsp;satellites: <s>"Sentinel-1"</s>, scenes: <n>9</n>,',
+          '&nbsp;&nbsp;summary: <s>"6 Ready, 3 Archived"</s> } ] }'
+        ] },
+      { type: 'agent', txt: 'Found it \u2014 9 scenes saved. A refresh looks from just before the saved end date through today, so nothing that arrived late is missed. It appends new scenes; it never re-downloads or removes anything.' },
+      { type: 'refresh', fn: 'query refresh',
+        args: [['slug', '"sundarbans-flood-watch"', 's']],
+        matched: 'Sentinel-1A',
+        token: 'Sentinel-1A_SAR(IW)_GRD',
+        newScenes: [
+          { id: 'S1A_IW_GRDH_20240712T120', dop: '2024-07-12', lat: 21.72, lon: 88.85, st: 'Ready' },
+          { id: 'S1A_IW_GRDH_20240724T120', dop: '2024-07-24', lat: 21.86, lon: 89.02, st: 'Ready' }
+        ],
+        priorScenes: [
+          { id: 'S1A_IW_GRDH_20240618T120', dop: '2024-06-18', lat: 21.78, lon: 88.92, st: 'Ready' },
+          { id: 'S1A_IW_GRDH_20240630T120', dop: '2024-06-30', lat: 21.90, lon: 88.80, st: 'Archived' }
+        ],
+        result: [
+          '{ slug: <s>"sundarbans-flood-watch"</s>,',
+          '&nbsp;&nbsp;new: <n>2</n>, total_now: <n>11</n>, removed: <n>0</n> }'
+        ],
+        summary: [['Ready', '8 Ready'], ['Archived', '3 Archived']],
+        total: 11 },
+      { type: 'answer', html: '<b>2 new radar scenes</b> since you last looked \u2014 both Ready, from mid and late July. Your saved search now holds <b>11</b>, added to the ones already there. Re-run it any time to keep the flood watch current, then download the new Ready scenes when you want them.' }
+    ]
   }
 ];
 
@@ -186,5 +230,5 @@ window.CLIENTS = [
   { name: 'Any stdio client',
     desc: 'The same shape works across MCP clients: a named server with a command and empty args.',
     code: '{\n  <span class="str">"mcpServers"</span>: {\n    <span class="str">"bhoonidhi"</span>: {\n      <span class="str">"command"</span>: <span class="str">"/path/to/bhoonidhi-mcp/.venv/bin/bhoonidhi-mcp"</span>,\n      <span class="str">"args"</span>: []\n    }\n  }\n}',
-    note: 'Downloads and cart also need a Bhoonidhi login — run bhd auth login once, out of band.' }
+    note: 'Downloads and cart use your own Bhoonidhi login \u2014 run bhd auth login once in your terminal. Credentials stay with you; the agent only sees whether a session exists.' }
 ];
