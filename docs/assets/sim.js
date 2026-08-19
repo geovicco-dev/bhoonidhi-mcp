@@ -18,7 +18,7 @@
   });
 
   /* ---- Leaflet map ---- */
-  var map = null, layer = null;
+  var map = null, layer = null, currentBounds = null, resizeRaf = 0;
   function initMap() {
     if (!window.L || !document.getElementById('map')) return;
     map = L.map('map', { zoomControl: false, attributionControl: true, scrollWheelZoom: false, dragging: true });
@@ -28,6 +28,18 @@
       subdomains: 'abcd', maxZoom: 18
     }).addTo(map);
     layer = L.layerGroup().addTo(map);
+
+    // The map has a fixed height, so it never gets stretched by the growing
+    // transcript. A light invalidateSize on container resize (e.g. mobile
+    // reflow) keeps tiles crisp without re-framing.
+    var mapEl = document.getElementById('map');
+    if (window.ResizeObserver) {
+      new ResizeObserver(function () {
+        if (!map) return;
+        cancelAnimationFrame(resizeRaf);
+        resizeRaf = requestAnimationFrame(function () { map.invalidateSize({ animate: false }); });
+      }).observe(mapEl);
+    }
   }
 
   // Build a rotated rectangular footprint (4 corners) around a scene centre.
@@ -54,6 +66,7 @@
       color: color, weight: 2, opacity: 1,
       fillColor: color, fillOpacity: 0.12, lineJoin: 'miter'
     }).addTo(layer);
+    addReadoutRow(s);
     if (REDUCED) return;
     // Fade the footprint in, with a brief outline flash on arrival.
     poly.setStyle({ opacity: 0, fillOpacity: 0 });
@@ -65,12 +78,41 @@
     })(t0);
   }
 
+  // The map has a fixed height; the space that opens up below it as the
+  // transcript grows is filled with a manifest of the footprints on the map,
+  // one row per scene, trickling in as each plots.
+  var mrList = document.getElementById('mr-list');
+  var mrCount = document.getElementById('mr-count');
+  var mrShown = 0;
+  function resetReadout() {
+    if (!mrList) return;
+    mrList.innerHTML = '<div class="mr-empty">Footprints appear here as the search returns scenes — each row is one acquisition on the map, tagged by whether you can download it.</div>';
+    if (mrCount) mrCount.textContent = '';
+    mrShown = 0;
+  }
+  function addReadoutRow(s) {
+    if (!mrList) return;
+    if (mrShown === 0) mrList.innerHTML = '';
+    var lbl = s.st === 'OnOrder' ? 'On order' : s.st;
+    var row = document.createElement('div');
+    row.className = 'mr-row';
+    row.innerHTML = '<span class="sw ' + s.st + '"></span>' +
+      '<span class="rid">' + s.id + '</span>' +
+      '<span class="rdop">' + s.dop + '</span>' +
+      '<span class="rst ' + s.st + '">' + lbl + '</span>';
+    mrList.appendChild(row);
+    mrShown += 1;
+    if (mrCount) mrCount.textContent = mrShown + ' on map';
+  }
+
   function setMapForRun(run) {
     if (!map) return;
     layer.clearLayers();
+    resetReadout();
     map.invalidateSize();
     var b = run.bbox;
     var bounds = [[b.miny, b.minx], [b.maxy, b.maxx]];
+    currentBounds = bounds;  // remembered so the resize observer can re-frame
     map.fitBounds(bounds, { padding: [30, 30], maxZoom: 9, animate: !REDUCED });
     // The search area of interest — neutral, so scene outlines carry the colour.
     L.rectangle(bounds, {
