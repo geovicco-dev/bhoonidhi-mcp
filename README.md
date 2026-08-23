@@ -205,6 +205,15 @@ Set as environment variables (all optional):
 | `BHOONIDHI_MCP_LARGE_DOWNLOAD_MB` | `500` | Once a download's live byte total (or known size) passes this, the status flags it large and steers the agent to hand off or run a standalone command. |
 | `BHOONIDHI_USERNAME` / `BHOONIDHI_PASSWORD` | *(unset)* | Optional headless login. Prefer `bhd auth login`; fill these out of band, never commit them. |
 
+## Data usage and attribution
+
+The imagery reached through this server belongs to ISRO/NRSC and is governed by the [Bhoonidhi EULA](https://bhoonidhi.nrsc.gov.in/bhoonidhi/htmls/TnC.html), not by this project's MIT license — that license covers the code here, nothing else. What the EULA asks of you:
+
+- **Use your own account.** Downloads and cart actions authenticate with your own Bhoonidhi login, established out of band. The server never takes a password as a tool argument and never shares or bypasses a session.
+- **Credit the source.** Anything you publish from this data must carry the caption **ISRO-IRS**.
+- **Don't resell the raw data.** Scenes the portal marks as open data are free to use, publish, and build on. The original products just can't be redistributed commercially in their original form — derived and value-added products are fine.
+- **Priced and on-order scenes go through the portal.** This server never bypasses payment: priced and on-order scenes are only staged to the cart, and you complete any order and payment on Bhoonidhi.
+
 ## Development
 
 ```bash
