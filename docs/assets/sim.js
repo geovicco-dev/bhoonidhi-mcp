@@ -25,7 +25,7 @@
     map.setView([22, 82], 4);
     L.tileLayer(THEME.tiles, {
       attribution: THEME.attribution || '&copy; OpenStreetMap &copy; CARTO',
-      subdomains: 'abcd', maxZoom: 18
+      maxZoom: 19
     }).addTo(map);
     layer = L.layerGroup().addTo(map);
 
