@@ -11,6 +11,7 @@ import json
 
 from bhoonidhi_downloader.sdk import BhoonidhiClient
 from mcp.server.mcpserver import MCPServer
+from mcp_types import ToolAnnotations
 
 from . import tools
 
@@ -18,7 +19,14 @@ server = MCPServer("bhoonidhi")
 _client = BhoonidhiClient()
 
 
-@server.tool()
+@server.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    )
+)
 def list_archive(refresh: bool = False) -> dict:
     """List every satellite and sensor the Bhoonidhi portal supports.
 
@@ -29,7 +37,14 @@ def list_archive(refresh: bool = False) -> dict:
     return tools.list_archive(_client, refresh=refresh)
 
 
-@server.tool()
+@server.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    )
+)
 def resolve_location(name: str) -> dict:
     """Resolve a place name to a centroid and bounding box.
 
@@ -40,7 +55,14 @@ def resolve_location(name: str) -> dict:
     return tools.resolve_location(name)
 
 
-@server.tool()
+@server.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    )
+)
 def search_scenes(
     satellite: str,
     start_date: str,
@@ -97,7 +119,14 @@ def search_scenes(
     )
 
 
-@server.tool()
+@server.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    )
+)
 def preview_download(
     satellite: str,
     start_date: str,
@@ -148,7 +177,14 @@ def preview_download(
     )
 
 
-@server.tool()
+@server.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    )
+)
 def save_query(
     satellite: str,
     start_date: str,
@@ -198,7 +234,14 @@ def save_query(
     )
 
 
-@server.tool()
+@server.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
+)
 def list_queries() -> dict:
     """List every saved query as compact summaries.
 
@@ -210,7 +253,14 @@ def list_queries() -> dict:
     return tools.list_queries(_client)
 
 
-@server.tool()
+@server.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
+)
 def show_query(slug: str) -> dict:
     """Return one saved query by slug, with its scenes.
 
@@ -221,7 +271,14 @@ def show_query(slug: str) -> dict:
     return tools.show_query(_client, slug)
 
 
-@server.tool()
+@server.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
+)
 def remove_query(slug: str) -> dict:
     """Delete a saved query by slug.
 
@@ -232,7 +289,14 @@ def remove_query(slug: str) -> dict:
     return tools.remove_query(_client, slug)
 
 
-@server.tool()
+@server.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    )
+)
 def auth_status() -> dict:
     """Report whether a Bhoonidhi login is configured for downloads and cart.
 
@@ -247,7 +311,14 @@ def auth_status() -> dict:
     return tools.auth_status(_client)
 
 
-@server.tool()
+@server.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    )
+)
 def download_query(
     slug: str,
     select: list | None = None,
@@ -275,7 +346,14 @@ def download_query(
     return tools.download_query(_client, slug, select=select, force=force)
 
 
-@server.tool()
+@server.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
+)
 def download_status(job_id: str) -> dict:
     """Check a background download started by download_query (one-off).
 
@@ -290,7 +368,14 @@ def download_status(job_id: str) -> dict:
     return tools.download_status(job_id)
 
 
-@server.tool()
+@server.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
+)
 def download_wait(job_id: str, timeout_s: float = 60.0) -> dict:
     """Wait for a background download to finish, then report — for a watcher.
 
@@ -305,7 +390,14 @@ def download_wait(job_id: str, timeout_s: float = 60.0) -> dict:
     return tools.download_wait(job_id, timeout_s=timeout_s)
 
 
-@server.tool()
+@server.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    )
+)
 def cart_add(slug: str, select: list | None = None) -> dict:
     """Stage a saved query's scenes to the Bhoonidhi cart.
 
@@ -319,7 +411,14 @@ def cart_add(slug: str, select: list | None = None) -> dict:
     return tools.cart_add(_client, slug, select=select)
 
 
-@server.tool()
+@server.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    )
+)
 def cart_list(
     filter_by: str | None = None,
     since: str | None = None,
@@ -338,7 +437,14 @@ def cart_list(
     )
 
 
-@server.tool()
+@server.tool(
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=True,
+    )
+)
 def cart_remove(
     slug: str | None = None,
     select: list | None = None,
