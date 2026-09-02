@@ -1,5 +1,7 @@
 # bhoonidhi-mcp
 
+<!-- mcp-name: io.github.geovicco-dev/bhoonidhi-mcp -->
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 An [MCP](https://modelcontextprotocol.io) server that lets an AI agent search,
