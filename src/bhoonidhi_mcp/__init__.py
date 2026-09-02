@@ -6,4 +6,4 @@ logged in — save queries, download open-access scenes, and stage scenes to the
 Bhoonidhi cart.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

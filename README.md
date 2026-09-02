@@ -199,7 +199,7 @@ Set as environment variables (all optional):
 
 | Variable | Default | Purpose |
 | ---------- | --------- | --------- |
-| `BHOONIDHI_MCP_GEOCODER_USER_AGENT` | `bhoonidhi-mcp/0.2` | User-Agent sent to Nominatim (its usage policy asks for a descriptive one). |
+| `BHOONIDHI_MCP_GEOCODER_USER_AGENT` | `bhoonidhi-mcp/0.3` | User-Agent sent to Nominatim (its usage policy asks for a descriptive one). |
 | `BHOONIDHI_MCP_FUZZY_THRESHOLD` | `88` | Score (0–100) a satellite-name match must clear to be confident; below it, candidates are returned for the agent to confirm. |
 | `BHOONIDHI_MCP_MAX_RESULTS` | `50` | Maximum scenes returned inline by `search_scenes`. |
 | `BHOONIDHI_MCP_DOWNLOAD_ROOT` | `~/Downloads` | Allow-listed root every download writes under, as `<root>/<slug>/`. The agent cannot choose an arbitrary path. |

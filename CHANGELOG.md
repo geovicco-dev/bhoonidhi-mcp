@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented here.
 
+## [0.3.0]
+
+Every tool now declares its trust hints, the landing page's demo map runs on
+a basemap that needs no API key, and the server publishes to PyPI on release.
+
+### Added
+
+- **Every tool declares its readOnly / destructive / idempotent / openWorld hints** — none of the 15 tools carried these before, so any host had to treat every call as maximally risky by default, even a pure read like `list_archive`. Read-only search/list/show tools now report `read_only_hint=True`; `remove_query` and `cart_remove` (which drop state that is not trivially recreated) report `destructive_hint=True`; anything that starts a new background job or portal-side action (`save_query`, `download_query`, `cart_add`) reports `idempotent_hint=False`. Some directories reject a tool listing outright when any hint is missing.
+- **The server publishes to PyPI on a GitHub Release**, authenticating via PyPI's trusted-publisher OIDC flow rather than a stored token — nothing to rotate or leak.
+
+### Changed
+
+- **`CITATION.cff` and a `mcp-name` marker in the README** support GitHub's "Cite this repository" button and the official MCP registry's PyPI ownership check, ahead of the server's first real PyPI publish.
+- **The landing page's demo map switched from CartoDB to Esri World Imagery** — CartoDB's dark basemap started requiring an API key; Esri's tile service is free and needs no key, so it replaces it as the shared basemap across all four demo flows.
+
 ## [0.2.0]
 
 Adds stateful saved queries and authenticated actions: an agent can now save a

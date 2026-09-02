@@ -29,7 +29,7 @@ from geopy.geocoders import Nominatim
 # Nominatim's public endpoint asks for a descriptive User-Agent and at most one
 # request per second. Both are enforced here; the UA is overridable by env.
 _DEFAULT_USER_AGENT = os.environ.get(
-    "BHOONIDHI_MCP_GEOCODER_USER_AGENT", "bhoonidhi-mcp/0.2"
+    "BHOONIDHI_MCP_GEOCODER_USER_AGENT", "bhoonidhi-mcp/0.3"
 )
 _MIN_DELAY_SECONDS = 1.1
 
