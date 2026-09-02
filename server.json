@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.geovicco-dev/bhoonidhi-mcp",
+  "title": "bhoonidhi-mcp",
+  "description": "Search, save, and download satellite scenes from ISRO's Bhoonidhi portal in natural language.",
+  "version": "0.3.0",
+  "websiteUrl": "https://geovicco-dev.github.io/bhoonidhi-mcp/",
+  "repository": {
+    "url": "https://github.com/geovicco-dev/bhoonidhi-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "bhoonidhi-mcp",
+      "version": "0.3.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
