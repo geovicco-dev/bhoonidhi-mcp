@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+title: "bhoonidhi-mcp: An MCP server for ISRO's Bhoonidhi EO portal"
+abstract: >-
+  bhoonidhi-mcp is a Model Context Protocol server that lets an AI agent
+  search, save, download, and cart satellite scenes from ISRO's Bhoonidhi
+  Browse & Order portal (NRSC) in natural language. It is a thin adapter over
+  the bhoonidhi-downloader SDK, turning a sentence like "Sentinel-2 over
+  Shillong last January" into a real search against the live portal, with
+  honest reporting of what is actually available to download.
+type: software
+authors:
+  - given-names: Aditya
+    family-names: Sharma
+    alias: geovicco-dev
+    orcid: "https://orcid.org/0009-0007-6154-086X"
+repository-code: "https://github.com/geovicco-dev/bhoonidhi-mcp"
+url: "https://geovicco-dev.github.io/bhoonidhi-mcp/"
+license: MIT
+keywords:
+  - remote sensing
+  - earth observation
+  - satellite imagery
+  - ISRO
+  - Bhoonidhi
+  - NRSC
+  - GIS
+  - MCP
+  - AI agents
+  - python
+version: 0.2.0
+date-released: "2026-08-23"
