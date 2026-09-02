@@ -2,6 +2,8 @@
 
 <!-- mcp-name: io.github.geovicco-dev/bhoonidhi-mcp -->
 
+[![PyPI](https://img.shields.io/pypi/v/bhoonidhi-mcp.svg)](https://pypi.org/project/bhoonidhi-mcp/)
+[![MCP Registry](https://img.shields.io/badge/MCP_Registry-listed-blue)](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.geovicco-dev/bhoonidhi-mcp)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 An [MCP](https://modelcontextprotocol.io) server that lets an AI agent search,
