@@ -25,6 +25,7 @@ from bhoonidhi_downloader.exceptions import (
     BhoonidhiNotFoundError,
     BhoonidhiValidationError,
 )
+from bhoonidhi_downloader.schemas.selection import OTHERS, product_token
 from bhoonidhi_downloader.sdk import preview_download as _sdk_preview
 from bhoonidhi_downloader.sdk import scene_availability
 
@@ -61,13 +62,26 @@ def _get_vocab(client: Any) -> Vocabulary:
 # --- shaping ---------------------------------------------------------------
 
 
+def _product_value(satellite: str, sensor: str, disp_name: str) -> str:
+    """The value to pass as ``product`` to select exactly this product.
+
+    It is the part of the token after ``satellite_sensor_``. A token with no
+    suffix (``ResourceSat-2_AWIFS``) is the portal's "Others" product, which
+    the downloader selects with the word ``Others``.
+    """
+    return product_token(disp_name, satellite, sensor) or OTHERS
+
+
 def _shape_archive_record(record: dict[str, Any]) -> dict[str, Any]:
+    satellite = record.get("satName") or ""
     return {
         "satellite": record.get("satName"),
         "sensors": [
             {
                 "sensor": s.get("senName"),
                 "token": s.get("dispName"),  # the exact SAT_SEN_PROD search token
+                # What to pass as `product` to search this product alone.
+                "product": _product_value(satellite, s.get("senName") or "", s.get("dispName") or ""),
                 "resolution_m": s.get("res"),
                 "start": s.get("stDate") or None,
                 "end": s.get("endDate") or None,

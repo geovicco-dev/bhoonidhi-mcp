@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **`list_archive` gives each product's `product` value**, the exact word to pass as the search tools' `product` argument to search that product alone: the part of the token after `satellite_sensor_`, or `Others` for a token with no suffix such as `ResourceSat-2_AWIFS`. Before, a calling model could see that product's token but had no value that selected it alone.
+
+### Changed
+
+- **Requires bhoonidhi-downloader 0.6.0.** `product="Others"` now searches only the product whose token has no suffix, where before no product value could select it alone. A product the portal no longer lists, such as IRS-1A's original LISS1 product, is still searched.
+
 ## [0.3.0]
 
 Every tool now declares its trust hints, the landing page's demo map runs on
