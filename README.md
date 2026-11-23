@@ -30,7 +30,7 @@ login, done out of band with `bhd auth login` (the server reuses that session).
 
 | Tool | What it does | Login |
 | ------ | -------------- | ------- |
-| `list_archive` | The vocabulary of satellites, sensors, and search tokens the portal supports, live from Bhoonidhi. | no |
+| `list_archive` | The vocabulary of satellites, sensors, search tokens and product values the portal supports, live from Bhoonidhi. | no |
 | `resolve_location` | Turns a place name ("Loktak Lake") into a centroid and bounding box. Rejects inputs that are not place names. | no |
 | `search_scenes` | Natural-language scene search over an area and date range. Resolves a casual satellite name to exact tokens, and reports each scene's availability (Ready / Archived / OnOrder / Priced). Stateless — nothing is saved. | no |
 | `preview_download` | A dry run: shows what downloading the results would fetch, and what would be skipped, before anything is downloaded. | no |

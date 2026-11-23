@@ -31,8 +31,11 @@ def list_archive(refresh: bool = False) -> dict:
     """List every satellite and sensor the Bhoonidhi portal supports.
 
     Returns the vocabulary of valid satellites, sensors, and exact search
-    tokens, with each product's resolution and date coverage. Call this to
-    discover what can be searched. Set refresh=True to bypass the local cache.
+    tokens, with each product's resolution and date coverage. Each sensor entry
+    also gives `product`: the exact value to pass as the search tools' product
+    argument to search that product alone. A token with no product suffix (such
+    as "ResourceSat-2_AWIFS") has product "Others". Call this to discover what
+    can be searched. Set refresh=True to bypass the local cache.
     """
     return tools.list_archive(_client, refresh=refresh)
 
@@ -85,8 +88,10 @@ def search_scenes(
     (minx/maxx/miny/maxy) or a point with radius (lat/lon/radius_km) — typically
     from resolve_location. sensor narrows to one sensor on the matched
     satellite(s) (e.g. "SSAR", "LISS3"); product further narrows to one product
-    under that sensor (e.g. "GCOV", "L2C-Chlorophyll") — see list_archive for the
-    exact sensor/product names each satellite carries. The search is stateless
+    under that sensor (e.g. "GCOV", "L2C-Chlorophyll", or "Others" for the
+    product whose token has no suffix). Without product, every product of the
+    sensor is searched. See list_archive for the exact sensor names and product
+    values each satellite carries. The search is stateless
     and needs no login.
 
     If the satellite name is ambiguous, returns status="ambiguous_satellite"

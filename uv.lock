@@ -51,7 +51,7 @@ wheels = [
 
 [[package]]
 name = "bhoonidhi-downloader"
-version = "0.5.3"
+version = "0.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
@@ -60,9 +60,9 @@ dependencies = [
     { name = "tabulate" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/74/ba/e8030b2f4391d93d375417d218c4d75bf52b1d06e0fc17caac2196325dc3/bhoonidhi_downloader-0.5.3.tar.gz", hash = "sha256:1b23cde9932076671cb8008df9312a2abe132bcdb17bb50f3927dac7079d4e8a", size = 255974, upload-time = "2026-08-19T01:42:10.377Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/71/394dfa71e323f3a0b27ffaa234b7cc7d0521afd5eb3275ee017f873f1216/bhoonidhi_downloader-0.6.0.tar.gz", hash = "sha256:746ce74ef89a193c3c0dc6e64559f9f98e6996aa0a8f5ed231344f93be13ebb0", size = 270889, upload-time = "2026-11-23T10:02:50.631Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/60/04/6815cd08b34455ee5436643ac419bd5b05f99579741424eed4d91fb37359/bhoonidhi_downloader-0.5.3-py3-none-any.whl", hash = "sha256:5fd0d5b7d4c91883956ec82ea36d81f63872f273a37a55b09484e730a2d82578", size = 105251, upload-time = "2026-08-19T01:42:09.081Z" },
+    { url = "https://files.pythonhosted.org/packages/65/3f/086b6fbd868a99e3568030529018666064a374a4850bde4166cd45e35d61/bhoonidhi_downloader-0.6.0-py3-none-any.whl", hash = "sha256:f7e69b125205f3d466eb87cbe984d6664c88a1e170ec674e0306432093fe4000", size = 112010, upload-time = "2026-11-23T10:02:49.655Z" },
 ]
 
 [[package]]
@@ -84,7 +84,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "bhoonidhi-downloader", specifier = ">=0.5.3,<0.6" },
+    { name = "bhoonidhi-downloader", specifier = ">=0.6.0,<0.7" },
     { name = "geopy", specifier = ">=2.4" },
     { name = "mcp", specifier = ">=2.0" },
     { name = "rapidfuzz", specifier = ">=3.0" },

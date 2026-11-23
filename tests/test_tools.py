@@ -76,6 +76,17 @@ def test_list_archive_shapes_records():
     assert rec["sensors"][0]["token"]  # exact search token present
 
 
+def test_list_archive_gives_the_product_value_to_pass():
+    """The suffix after satellite_sensor_, or Others for a token with none."""
+    shape = tools_module._shape_archive_record
+    out = shape({"satName": "ResourceSat-2", "sensors": [
+        {"senName": "AWIFS", "dispName": "ResourceSat-2_AWIFS_L2"},
+        {"senName": "AWIFS", "dispName": "ResourceSat-2_AWIFS"},
+        {"senName": "VIIRS", "dispName": "ResourceSat-2_VIIRS_Imagery_L1"},
+    ]})
+    assert [s["product"] for s in out["sensors"]] == ["L2", "Others", "Imagery_L1"]
+
+
 def test_search_expands_constellation_and_shapes_scenes():
     out = search_scenes(
         _FakeClient(scenes=[_SCENE]),
